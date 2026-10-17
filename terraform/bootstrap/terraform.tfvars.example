@@ -1,0 +1,5 @@
+# Copy to terraform.tfvars (gitignored) or set TF_VAR_owner in your shell.
+owner       = "your-name-or-team"
+region      = "us-east-1"
+project     = "private-llm"
+environment = "sandbox"
