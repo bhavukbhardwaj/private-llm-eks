@@ -17,6 +17,16 @@ The brief requires no public ingress to the model and no NAT for model traffic. 
 6. The in-VPC demo `curl` is run from the bastion, and also from a client pod.
 7. Instance: `t4g.micro` (arm64, matches ADR-000) on **Spot** (operator decision, 2026-10-18; amended from the initial On-Demand proposal). Use a persistent Spot request with interruption behaviour `stop`, so an interrupted bastion stops and restarts instead of being terminated; EBS (encrypted) and the tools stay in place. Fallback: switch to On-Demand if interruptions become disruptive (about $0.0084/hr).
 
+## Viewing Grafana (and other web UIs)
+
+The bastion has no desktop and no inbound port, so UIs are viewed in the laptop browser through two chained port-forwards. Nothing is exposed publicly and it costs nothing extra.
+
+1. On the bastion (browser Session Manager shell): `kubectl -n monitoring port-forward svc/grafana 3000:80 --address 127.0.0.1` (leave running).
+2. On the laptop: `aws ssm start-session --target <bastion-instance-id> --document-name AWS-StartPortForwardingSession --parameters '{"portNumber":["3000"],"localPortNumber":["3000"]}'`.
+3. Open `http://localhost:3000`. The admin password is read from the cluster secret (`kubectl -n monitoring get secret grafana -o jsonpath='{.data.admin-password}' | base64 -d`), never stored in git.
+
+Needs the `session-manager-plugin` on the laptop (it needs `sudo` to install) and the SSM endpoints. The browser Session Manager console cannot forward ports. Rejected for this: an internal ALB or Ingress for Grafana (about $0.03/hr more), a desktop or VNC on the bastion (no internet, extra ports and RAM), and any internet-facing Grafana (breaks the no-public-ingress rule). The walkthrough and the README dashboard screenshot are taken this way.
+
 ## Alternatives considered
 
 - **Public API endpoint restricted to operator IP /32.** Free and simplest, but leaves a public control-plane address, needs updating when the IP changes. Kept as the documented fallback if the bastion path blocks progress.
