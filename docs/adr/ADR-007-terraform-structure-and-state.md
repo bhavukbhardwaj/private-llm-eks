@@ -18,7 +18,18 @@ The sandbox has a hard cost cap and must be torn down between sessions. Some res
    `s3://<state-bucket>/<project>/<environment>/<stack>/terraform.tfstate`, for example `private-llm/sandbox/foundation/terraform.tfstate` and `private-llm/sandbox/platform/terraform.tfstate`. The bucket name carries a random suffix (no account ID in names).
 3. **Locking:** S3 native locking (`use_lockfile = true`, Terraform 1.10 or later) with **no DynamoDB table**. Bucket has versioning, default encryption, and public access blocked.
 4. **Versions:** `required_version` and provider versions are pinned in every stack; `.terraform.lock.hcl` is committed. Backend config is partial (bucket passed at `init`) so no environment-specific values are hard-coded.
-5. **Kubernetes/Helm resources are not managed from Terraform** (private cluster, see ADR-006); they are applied from the bastion using `k8s/`.
+5. **Simple, uniform file layout and readable code.** Every stack (and module) uses the same small set of files so anyone, human or another AI session, can find things without a guide:
+
+   | File | Contents |
+   |---|---|
+   | `main.tf` | Resources (or module calls in the stacks); kept as one file unless it passes about 200 lines |
+   | `variables.tf` | Inputs with types, descriptions and defaults |
+   | `outputs.tf` | Outputs, each with a description |
+   | `providers.tf` | `terraform {}` block with `required_version` and provider pins, plus the provider with `default_tags` |
+   | `backend.tf` | Remote state config (`foundation` and `platform` only; `bootstrap` uses local state) |
+
+   Plus `terraform.tfvars.example` documenting the inputs. Every `resource`, `data`, `module` and `output` block has a **one-line `#` comment directly above it** saying what it is or why it exists. Structure comes from the modules, not from many small files. Names use the standard plural forms (`variables.tf`, `outputs.tf`, `providers.tf`) because that is what readers expect.
+6. **Kubernetes/Helm resources are not managed from Terraform** (private cluster, see ADR-006); they are applied from the bastion using `k8s/`.
 
 ## Alternatives considered
 
@@ -30,6 +41,7 @@ The sandbox has a hard cost cap and must be torn down between sessions. Some res
 ## Consequences
 
 Positive
+- Uniform five-file layout and one-line comments make the code quick to review and easy for a new session or person to pick up.
 - `terraform destroy` in `platform` stops the bill without touching weights or images; recreating the cluster does not re-upload gigabytes.
 - Blast radius of each apply is small; state paths are self-describing.
 - One fewer AWS resource (no DynamoDB) and nothing to clean up for locks.
@@ -37,4 +49,5 @@ Positive
 Negative / risks
 - Cross-stack coupling through `terraform_remote_state`: output names are an interface and must be changed carefully; apply order is foundation, then platform (destroy in the reverse order).
 - S3 native locking needs Terraform 1.10+ (we pin 1.16.x) and conditional-write support; if the lockfile gets stuck, `terraform force-unlock` or deleting the `.tflock` object is needed.
+- Fewer files means larger `main.tf` files in the stacks; the one-line comments and module boundaries are what keep them readable, and the 200-line guideline is the trigger to split.
 - Bootstrap uses local state, so that single file must be kept until the bucket is imported or left alone; losing it does not lose any other stack's state.
