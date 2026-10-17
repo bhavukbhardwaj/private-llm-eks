@@ -14,6 +14,14 @@ There is no NAT gateway and no internet gateway, so nodes cannot pull from Docke
 3. Helm values and manifests reference only the ECR URLs. Public registries are never used at runtime.
 4. Images needed: vLLM, AWS CLI (init container), NVIDIA device plugin, DCGM exporter, AWS Load Balancer Controller, EBS CSI driver add-on images if not provided by the EKS add-on, Prometheus stack components, Grafana, Loki, Promtail, busybox and the load-test image.
 
+## How images are copied (details)
+
+- **Third-party images use `crane copy`, never `docker pull` followed by `docker push`.** `crane copy <source> <ecr-image>` streams the layers registry to registry and keeps the same digest. It needs no Docker daemon and stores nothing on the laptop disk. `docker pull` would fetch only the laptop's architecture (arm64 on Apple Silicon) and break the x86 GPU node.
+- **One platform per image where possible:** `crane copy --platform linux/arm64` for images that run on the Graviton system nodes, `--platform linux/amd64` for images that run on the GPU node (vLLM, device plugin, DCGM), and all platforms for images that run on both kinds of node (busybox, node-exporter, aws-cli). This halves upload for most images.
+- **The only image we build ourselves is the load-test client**, with `docker buildx build --platform linux/arm64 --push` (it runs on a system node). Third-party code is never rebuilt.
+- The list of images, pinned tags and platforms is `scripts/images.txt`; `scripts/mirror-images.sh` runs it (supports `--dry-run` and `ONLY=`), skips tags that already exist (tags are immutable) and prints the digest of each copy. Tags were verified against the upstream registries on 2026-10-18.
+- The data path is upstream registry, to the laptop, to ECR. Large images (vLLM, several GB) depend on laptop bandwidth; an in-region helper instance is the fallback if it is too slow.
+
 ## Alternatives considered
 
 - **ECR pull-through cache rules.** Convenient, but the first pull needs the upstream registry reachable from ECR (works from the AWS side, not the node), and it needs credentials for some registries. It also adds rules and behaviour to explain; explicit mirroring is simpler to audit.

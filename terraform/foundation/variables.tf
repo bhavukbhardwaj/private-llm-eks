@@ -69,6 +69,7 @@ variable "ecr_repositories" {
     "loki",
     "promtail",
     "busybox",
+    "aws-cli",
     "loadtest",
   ]
 }

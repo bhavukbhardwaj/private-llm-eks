@@ -1,0 +1,19 @@
+# Images mirrored into private ECR with `crane copy` (ADR-003). Never docker pull / docker push for these.
+# Columns: ecr_repo  tag  platform  source
+#   platform: linux/arm64 (system nodes), linux/amd64 (GPU node), or all (runs on both kinds of node)
+# Tags verified to exist with the needed architectures on 2026-10-18. ECR tags are immutable: to change a version, add a new tag.
+aws-load-balancer-controller  v3.6.0   linux/arm64  public.ecr.aws/eks/aws-load-balancer-controller:v3.6.0
+busybox                       1.38.0   all          public.ecr.aws/docker/library/busybox:1.38.0
+aws-cli                       2.38.1   all          public.ecr.aws/aws-cli/aws-cli:2.38.1
+prometheus                    v3.15.0  linux/arm64  quay.io/prometheus/prometheus:v3.15.0
+alertmanager                  v0.34.1  linux/arm64  quay.io/prometheus/alertmanager:v0.34.1
+prometheus-operator           v0.94.1  linux/arm64  quay.io/prometheus-operator/prometheus-operator:v0.94.1
+prometheus-config-reloader    v0.94.1  linux/arm64  quay.io/prometheus-operator/prometheus-config-reloader:v0.94.1
+kube-state-metrics            v2.20.0  linux/arm64  registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.20.0
+node-exporter                 v1.12.1  all          quay.io/prometheus/node-exporter:v1.12.1
+grafana                       13.2.4   linux/arm64  docker.io/grafana/grafana:13.2.4
+loki                          3.7.8    linux/arm64  docker.io/grafana/loki:3.7.8
+promtail                      3.6.11   linux/arm64  docker.io/grafana/promtail:3.6.11
+nvidia-device-plugin          v0.20.1  linux/amd64  nvcr.io/nvidia/k8s-device-plugin:v0.20.1
+dcgm-exporter                 4.5.2-4.8.1-ubuntu22.04  linux/amd64  nvcr.io/nvidia/k8s/dcgm-exporter:4.5.2-4.8.1-ubuntu22.04
+vllm                          v0.31.0  linux/amd64  docker.io/vllm/vllm-openai:v0.31.0
