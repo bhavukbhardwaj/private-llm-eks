@@ -16,13 +16,13 @@ Total budget is USD 150 (personal alerts are set lower). The stack is built, use
    - S3 buckets: default SSE-S3 (or the AWS-managed `aws/s3` key), public access blocked, TLS-only bucket policies.
    - EKS secrets: the EKS default encryption at rest (no envelope encryption with our own key).
    - The `kms` interface endpoint is still created, as the brief lists it.
-   - The Terraform code keeps a `kms` module and a `use_cmk` variable (default `false`). Setting it to `true` creates a customer-managed key (about $1/month) and switches EBS, S3 and EKS secrets to it, so the production-grade setup is a one-variable change.
+   - The Terraform code keeps a `kms` module and a `use_cmk` variable (default `false`). Setting it to `true` would create a customer-managed key and switch EBS, S3 and EKS secrets to it, so the production-grade setup is a one-variable change. **Operator decision (2026-10-18): the CMK is not created or applied; `use_cmk` stays `false`.** The CMK path exists as reviewed code only.
 4. **Single working AZ.** Two private subnets are created in two AZs (EKS and the internal ALB require subnets in at least two AZs), but nodes, the bastion, the SSM and other interface endpoints, and all pods are placed in one primary AZ (variable `primary_az`) so traffic does not cross AZs. The AZ is chosen by checking which AZ offers the needed instance types (system, g5 or equivalent) with good Spot price.
 5. No NAT gateway at all (also a cost saving, about $0.045/hr plus data) and no internet gateway.
 
 ## Alternatives considered
 
-- **Customer-managed KMS key from day one.** Matches the brief literally and is better practice (key policy, rotation control, audit through CloudTrail), costing about $1/month plus request fees. Deferred, not rejected: kept as a toggle and as a final-polish step.
+- **Customer-managed KMS key from day one.** Matches the brief literally and is better practice (key policy, rotation control, audit through CloudTrail), costing about $1/month (billed prorated hourly) plus request fees. Not applied, per operator decision to avoid any spend; kept as a code toggle only.
 - **All resources spread over two AZs.** Resilient but doubles interface-endpoint cost and adds cross-AZ transfer; not needed for a single-replica sandbox.
 - **On-Demand everywhere.** Predictable, but roughly 2 to 3 times the price for the GPU node.
 
@@ -33,7 +33,7 @@ Positive
 - Encryption at rest is still on everywhere.
 
 Negative / risks
-- **Deviation from brief 2.2** ("Encrypt EBS volumes used by nodes with a customer-managed KMS key") unless `use_cmk=true` is flipped before submission. Plan: flip and apply once near the end, to be able to show the CMK path. If not done, the README must state the deviation plainly.
+- **Deviation from brief 2.2** ("Encrypt EBS volumes used by nodes with a customer-managed KMS key"): nodes use AWS-managed encryption and no CMK is applied. The README must state this plainly, point to the `use_cmk` toggle and the `kms` module, and explain why (sandbox cost, short-lived infra). The written law-firm answer should say a real deployment would use CMKs with a reviewed key policy and rotation.
 - AWS-managed keys cannot have a custom policy, are not individually disable-able, and give less control over audit and revocation.
 - Single working AZ means no AZ resilience: an AZ outage or Spot capacity shortage in that AZ stops the system. Single-AZ GPU Spot also narrows the capacity pool; fall back to another AZ or On-Demand if Spot is unavailable.
 - The internal ALB still has load balancer nodes in both AZs, so a small amount of cross-AZ traffic (ALB node to pod) can occur; negligible at load-test volume.
