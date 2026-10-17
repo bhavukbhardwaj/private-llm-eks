@@ -1,6 +1,6 @@
 # ADR-001: Instance types and capacity model (Spot, g5.xlarge for GPU, t4g.small for system)
 
-- **Status:** Accepted (2026-10-18). GPU part is blocked until the AWS quota requests are approved (see Consequences).
+- **Status:** Accepted (2026-10-18). AWS approved both quota requests; live values verified at 02:25 IST on 2026-10-18: Spot G/VT 4 vCPU and On-Demand G/VT 4 vCPU.
 - **Related:** [ADR-000](ADR-000-skeleton-first-scope.md), [ADR-008](ADR-008-cost-optimisation-choices.md), [ADR-009](ADR-009-model-sizing-strategy.md), [task.md](../../task.md) sections 2.1 and 5
 
 ## Context
@@ -55,7 +55,7 @@ Positive
 - Cheap dev GPUs and CPU-only mode keep debugging cost near zero.
 
 Negative / risks
-- **Quota dependency:** no GPU or Spot G instance can be launched until AWS approves the increases. Until then only CPU and system work can proceed (Phase 1 skeleton).
+- **Quota limit:** both quotas are 4 vCPU, so only one g5.xlarge (4 vCPU) can run at a time, Spot or On-Demand, not both. A second GPU instance would need an 8 vCPU quota.
 - Spot can be interrupted with two minutes notice; a single AZ narrows the capacity pool. Mitigation: record evidence early, On-Demand fallback, retry another AZ.
 - t4g.small is tight: 2 GiB leaves little room, and Arm images must be available (mirrored) for add-ons; the system node is mixed-architecture with the x86 GPU node.
 - Prices are estimates; a Spot spike or a forgotten node can exceed the plan, which is why budgets and teardown discipline exist.
