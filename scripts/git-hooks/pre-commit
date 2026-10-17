@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Blocks commits that contain AWS credentials, tokens, private keys, or 12-digit account IDs.
+# Enable with: git config core.hooksPath scripts/git-hooks
+set -u
+added=$(git diff --cached -U0 --diff-filter=ACM | grep -E '^\+[^+]' || true)
+[ -z "$added" ] && exit 0
+fail=0
+check() { # name, regex
+  if echo "$added" | grep -Eq "$2"; then echo "BLOCKED: possible $1 in staged changes" >&2; fail=1; fi
+}
+check "AWS access key id"        '(AKIA|ASIA|AIDA|AROA)[A-Z0-9]{16}'
+check "AWS secret/session value" '(AWS_SECRET_ACCESS_KEY|AWS_SESSION_TOKEN|aws_secret_access_key|aws_session_token)[=: "]+[A-Za-z0-9/+=]{20,}'
+check "long base64 token"        '[A-Za-z0-9/+=]{200,}'
+check "private key"              'BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY'
+check "12-digit AWS account id (arn/url)" '(arn:aws[a-z-]*:[a-z0-9-]*:[a-z0-9-]*:[0-9]{12}:|[0-9]{12}\.dkr\.ecr)'
+check "SSO portal / instance id" '(awsapps\.com/start|ssoins-[0-9a-f]{16})'
+[ $fail -ne 0 ] && { echo "Commit aborted. Remove the sensitive data (use variables / data sources)." >&2; exit 1; }
+exit 0
