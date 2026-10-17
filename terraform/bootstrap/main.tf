@@ -3,15 +3,18 @@
 # Locking uses the S3 native lockfile (use_lockfile = true), so no DynamoDB table.
 # Encryption: SSE-S3 (AWS-managed, no cost), see ADR-008.
 
+# Random suffix so the globally unique bucket name needs no account ID.
 resource "random_id" "suffix" {
   byte_length = 4
 }
 
+# The bucket that stores Terraform state for the foundation and platform stacks.
 resource "aws_s3_bucket" "state" {
   bucket        = "${var.project}-tfstate-${random_id.suffix.hex}"
   force_destroy = false
 }
 
+# Keeps old state versions so a bad apply can be rolled back.
 resource "aws_s3_bucket_versioning" "state" {
   bucket = aws_s3_bucket.state.id
 
@@ -20,6 +23,7 @@ resource "aws_s3_bucket_versioning" "state" {
   }
 }
 
+# Encrypts state at rest with free SSE-S3 (AES256).
 resource "aws_s3_bucket_server_side_encryption_configuration" "state" {
   bucket = aws_s3_bucket.state.id
 
@@ -30,6 +34,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "state" {
   }
 }
 
+# Blocks every form of public access to the bucket.
 resource "aws_s3_bucket_public_access_block" "state" {
   bucket = aws_s3_bucket.state.id
 
@@ -39,6 +44,7 @@ resource "aws_s3_bucket_public_access_block" "state" {
   restrict_public_buckets = true
 }
 
+# Disables ACLs so the bucket owner owns all objects.
 resource "aws_s3_bucket_ownership_controls" "state" {
   bucket = aws_s3_bucket.state.id
 
@@ -47,6 +53,7 @@ resource "aws_s3_bucket_ownership_controls" "state" {
   }
 }
 
+# Expires old state versions and cleans up failed multipart uploads.
 resource "aws_s3_bucket_lifecycle_configuration" "state" {
   bucket = aws_s3_bucket.state.id
 
@@ -66,6 +73,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "state" {
   }
 }
 
+# Builds the JSON policy that denies any non-TLS request.
 data "aws_iam_policy_document" "tls_only" {
   statement {
     sid     = "DenyInsecureTransport"
@@ -89,6 +97,7 @@ data "aws_iam_policy_document" "tls_only" {
   }
 }
 
+# Attaches the TLS-only policy to the state bucket.
 resource "aws_s3_bucket_policy" "state" {
   bucket = aws_s3_bucket.state.id
   policy = data.aws_iam_policy_document.tls_only.json
