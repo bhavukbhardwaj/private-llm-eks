@@ -14,8 +14,8 @@ Spot prices sampled from the EC2 API on 2026-10-18, one hour of history, by AZ (
 | g5.xlarge | A10G 24 GB | 0.429 (1c) to 0.533 (1a); 1d 0.431, 1f 0.476, 1b 0.485 | 1.006 |
 | g4dn.xlarge | T4 16 GB | 0.293 (1f) to 0.350 (1a) | 0.526 |
 | g5g.xlarge (Arm) | T4G 16 GB | 0.128 (1a) to 0.141 | about 0.42 |
-| t4g.small | none (2 vCPU, 2 GiB) | not sampled yet | 0.0168 |
-| t4g.micro | none (2 vCPU, 1 GiB) | not sampled yet | 0.0084 |
+| t4g.small | none (2 vCPU, 2 GiB) | 0.0069 (1a) to 0.0089 (1c); 1d 0.0077 | 0.0168 |
+| t4g.micro | none (2 vCPU, 1 GiB) | 0.0032 (1a, 1f) to 0.0042 (1c); 1d 0.0035 | 0.0084 |
 
 \*On-Demand prices are public list prices recalled from memory, to be re-checked against the AWS price list before the final cost table. EKS control plane is a fixed $0.10/hr.
 
@@ -33,7 +33,7 @@ Spot prices sampled from the EC2 API on 2026-10-18, one hour of history, by AZ (
 |---|---|---|
 | g5.xlarge Spot (0.43 to 0.53) | 0.43 to 0.53 | 314 to 389 |
 | g5.xlarge On-Demand | 1.006 | 734 |
-| Platform without GPU: EKS 0.10, t4g.small and t4g.micro Spot (about 0.01), 6 interface endpoints x 1 AZ 0.06, 3 SSM endpoints 0.03, internal ALB about 0.03, gp3 volumes about 0.003 | about 0.23 | about 170 |
+| Platform without GPU: EKS 0.10, t4g.small 0.0089 and t4g.micro 0.0042 Spot in 1c (about 0.013 together), 6 interface endpoints x 1 AZ 0.06, 3 SSM endpoints 0.03, internal ALB about 0.03, gp3 volumes about 0.003 | about 0.23 | about 170 |
 | Platform with g5.xlarge Spot | about 0.66 to 0.76 | about 480 to 555 |
 
 Planned use for the assessment (not 730 hours): about 40 hours of platform up and about 10 hours of GPU. That is roughly 40 x 0.23 + 10 x 0.5 = about USD 14 on Spot, against about USD 19 if the GPU hours were On-Demand. Even three times that plan stays well under the USD 150 cap. Interface endpoints also charge about $0.01 per GB processed, which is negligible at load-test volumes. Figures are estimates to be replaced by measured Cost Explorer numbers in the README.
