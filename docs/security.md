@@ -14,6 +14,7 @@ Living list of security controls: what the brief or good practice requires, whet
 | Root MFA, no root keys, no IAM users | Good practice | On | Verified 2026-10-18. |
 | CloudTrail trail | Good practice | **Off** (ADR-005) | Event History (90 days) only. |
 | VPC flow logs, Container Insights, SSM session logging | Good practice | **Off** (no CloudWatch spend) | Not implemented in the PoC. |
+| EC2 detailed monitoring, CloudWatch alarms/custom metrics | Not required | **Off, never enabled** (ADR-008) | Basic 5-minute metrics are free; observability comes from Prometheus/Grafana in-cluster. |
 | Interface endpoint `logs` | Brief 2.2 | **Off** (nothing sends to CloudWatch) | Add `logs` to the `interface_endpoints` list when needed. |
 
 Not done in the PoC and called out in the law-firm answer: separate AWS account, network policies, request/response audit logging with redaction, SSO in front of the API, TLS on the internal ALB with a private CA, model supply-chain verification.
