@@ -33,7 +33,7 @@ Total budget is USD 150 (personal alerts are set lower). The stack is built, use
    | `multi_az` | foundation, platform | `false` | Nodes, endpoints and bastion spread over both AZs | doubles endpoint cost, adds cross-AZ transfer |
    | `enable_flow_logs` | foundation | `false` | VPC flow logs to CloudWatch/S3 | log ingestion and storage |
    | `enable_eks_control_plane_logs` | platform | `false` | EKS control-plane logs (`api`, `audit`, `authenticator`) delivered to CloudWatch Logs | CloudWatch ingestion (about $0.50/GB) and storage |
-| `eks_log_retention_days` | platform | 3 | Retention for those log groups, only used when the toggle above is `true` | storage |
+   | `eks_log_retention_days` | platform | 3 | Retention for those log groups, only used when the toggle above is `true` | storage |
 
    The EKS control plane itself, private networking, IRSA, no-public-ingress and encryption at rest are not toggles: they stay on in every run.
 
