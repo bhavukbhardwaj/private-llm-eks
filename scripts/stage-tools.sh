@@ -22,6 +22,6 @@ EXPECTED="$(curl -fsSL "https://get.helm.sh/helm-${HELM_VERSION}-linux-arm64.tar
 echo "${EXPECTED}  $WORK/helm.tgz" | shasum -a 256 -c -
 tar -xzf "$WORK/helm.tgz" -C "$WORK" linux-arm64/helm
 
-aws s3 cp "$WORK/kubectl" "s3://${TOOLS_BUCKET}/bin/kubectl" --region "$REGION"
-aws s3 cp "$WORK/linux-arm64/helm" "s3://${TOOLS_BUCKET}/bin/helm" --region "$REGION"
+aws s3 cp "$WORK/kubectl" "s3://${TOOLS_BUCKET}/bin/kubectl" --region "$REGION" --no-progress
+aws s3 cp "$WORK/linux-arm64/helm" "s3://${TOOLS_BUCKET}/bin/helm" --region "$REGION" --no-progress
 echo "staged kubectl ${KUBECTL_VERSION} and helm ${HELM_VERSION} to the tools bucket"

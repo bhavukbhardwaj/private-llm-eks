@@ -35,6 +35,6 @@ grep -v '^[[:space:]]*#' "$LIST" | grep -v '^[[:space:]]*$' | while read -r repo
   fi
 
   echo "copy   ${repo}:${tag} (${platform}) from ${source}"
-  crane copy "${platform_args[@]}" "$source" "$dest"
+  crane copy ${platform_args[@]+"${platform_args[@]}"} "$source" "$dest"
   echo "digest ${repo}:${tag} $(crane digest "$dest")"
 done
