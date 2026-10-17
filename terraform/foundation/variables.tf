@@ -31,7 +31,7 @@ variable "vpc_cidr" {
 variable "azs" {
   description = "Two Availability Zones for the private subnets (EKS and the internal ALB need two)."
   type        = list(string)
-  default     = ["us-east-1a", "us-east-1b"]
+  default     = ["us-east-1c", "us-east-1d"]
 }
 
 variable "private_subnet_cidrs" {
@@ -43,7 +43,7 @@ variable "private_subnet_cidrs" {
 variable "primary_az" {
   description = "The single working AZ where nodes, bastion and endpoints are placed (ADR-008). Must be one of azs."
   type        = string
-  default     = "us-east-1a"
+  default     = "us-east-1c"
 
   validation {
     condition     = contains(var.azs, var.primary_az)
