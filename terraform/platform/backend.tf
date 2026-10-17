@@ -1,0 +1,10 @@
+# Remote state in S3 with native locking (ADR-007). The bucket name is passed at init time:
+#   terraform init -backend-config="bucket=<state bucket from the bootstrap output>"
+terraform {
+  backend "s3" {
+    key          = "private-llm/assessment/platform/terraform.tfstate"
+    region       = "us-east-1"
+    use_lockfile = true
+    encrypt      = true
+  }
+}

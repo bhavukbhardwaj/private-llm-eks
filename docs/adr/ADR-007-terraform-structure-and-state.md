@@ -29,7 +29,8 @@ The sandbox has a hard cost cap and must be torn down between sessions. Some res
    | `backend.tf` | Remote state config (`foundation` and `platform` only; `bootstrap` uses local state) |
 
    Plus `terraform.tfvars.example` documenting the inputs. Every `resource`, `data`, `module` and `output` block has a **one-line `#` comment directly above it** saying what it is or why it exists. Structure comes from the modules, not from many small files. Names use the standard plural forms (`variables.tf`, `outputs.tf`, `providers.tf`) because that is what readers expect.
-6. **Kubernetes/Helm resources are not managed from Terraform** (private cluster, see ADR-006); they are applied from the bastion using `k8s/`.
+6. **EKS is a hand-written module** (aws_eks_cluster, node groups, launch templates, OIDC, add-ons, access entries) rather than the community `terraform-aws-modules/eks` module: fewer moving parts, no module-version surprises, and every line is reviewable against the brief. Costs more code to maintain.
+7. **Kubernetes/Helm resources are not managed from Terraform** (private cluster, see ADR-006); they are applied from the bastion using `k8s/`.
 
 ## Terraform version and the features we rely on
 

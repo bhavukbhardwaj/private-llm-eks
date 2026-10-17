@@ -1,0 +1,12 @@
+# Copy to terraform.tfvars (gitignored). Everything that bills by the hour is off by default (ADR-008).
+state_bucket = "private-llm-tfstate-xxxxxxxx" # from the bootstrap output; do not commit the real value
+
+# Turn these on for a working session, then back off (or destroy the stack):
+enable_interface_endpoints = false
+enable_ssm_endpoints       = false
+enable_bastion             = false
+enable_gpu_nodes           = false # needs AWS GPU quota approval (ADR-001)
+enable_ebs_csi             = false
+
+# Production would set: eks_control_plane_log_types = ["api", "audit", "authenticator"]
+eks_control_plane_log_types = []
