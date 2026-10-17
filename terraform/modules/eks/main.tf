@@ -147,6 +147,7 @@ resource "aws_launch_template" "system" {
       volume_size           = var.system_volume_gb
       volume_type           = "gp3"
       encrypted             = true
+      kms_key_id            = var.kms_key_arn
       delete_on_termination = true
     }
   }
@@ -232,6 +233,7 @@ resource "aws_launch_template" "gpu" {
       volume_size           = var.gpu_volume_gb
       volume_type           = "gp3"
       encrypted             = true
+      kms_key_id            = var.kms_key_arn
       delete_on_termination = true
     }
   }

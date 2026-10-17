@@ -90,6 +90,12 @@ variable "gpu_instance_type" {
   default     = "g5.xlarge"
 }
 
+variable "kms_key_arn" {
+  description = "Customer-managed KMS key for the node EBS volumes (brief 2.2). Null keeps the AWS-managed aws/ebs key. The key is referenced, never created here (ADR-008)."
+  type        = string
+  default     = null
+}
+
 variable "gpu_capacity_type" {
   description = "SPOT (default). ON_DEMAND is kept only as a documented fallback and is NOT used: this is a PoC, so we accept Spot interruptions instead of paying about 2.3x (ADR-001)."
   type        = string

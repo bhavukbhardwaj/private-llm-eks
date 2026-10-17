@@ -27,6 +27,12 @@ variable "state_bucket" {
   type        = string
 }
 
+variable "kms_key_arn" {
+  description = "ARN of an existing customer-managed KMS key used to encrypt node EBS volumes (brief 2.2). Pass it from an untracked tfvars file; it contains the account ID. Null keeps the AWS-managed aws/ebs key (ADR-008)."
+  type        = string
+  default     = null
+}
+
 variable "kubernetes_version" {
   description = "Kubernetes version of the EKS control plane."
   type        = string

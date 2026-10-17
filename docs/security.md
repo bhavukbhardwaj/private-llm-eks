@@ -5,7 +5,7 @@ Living list of security controls: what the brief or good practice requires, whet
 | Control | Required by | Default PoC run | How to enable / note |
 |---|---|---|---|
 | EKS control-plane logs (`api`, `audit`, `authenticator`) | Brief 2.2; production audit requirement | **Off** (cost) | `enable_eks_control_plane_logs = true` in the platform stack; types set by `eks_control_plane_log_types`, retention by `eks_log_retention_days`. Delivered to CloudWatch Logs (about $0.50/GB). Production: also ship to an immutable store. Ask before enabling. |
-| Customer-managed KMS key (EBS, S3, EKS secrets) | Brief 2.2 | **Off** (AWS-managed encryption on) | `use_cmk = true` in foundation/platform. About $1/month per key. |
+| Customer-managed KMS key for node EBS volumes | Brief 2.2 | **On** once `kms_key_arn` is set (reuses the existing IAM Identity Center key; not created or destroyed by Terraform) | Set `kms_key_arn` in the untracked tfvars. S3, EKS secrets and the bastion volume use default encryption. Shared key and rotation off: see ADR-008. |
 | Encryption at rest | Brief 2.2 | On (EBS default encryption, S3 SSE-S3) | Always on. |
 | No public ingress to the model | Brief 2.2 | On (internal ALB only, no IGW, no NAT) | Always on. |
 | Private EKS API endpoint, bastion via SSM (no inbound ports, no SSH keys) | Good practice, ADR-006 | On when the bastion toggles are used | `enable_bastion`, `enable_ssm_endpoints`. |

@@ -29,6 +29,20 @@ locals {
   )
 }
 
+# Account ID, used to build the Auto Scaling service-linked role ARN for the KMS grant (never written to files).
+data "aws_caller_identity" "current" {}
+
+# Lets the Auto Scaling service-linked role use the existing customer-managed key, so node groups can launch encrypted volumes.
+# The key is only referenced here; Terraform never creates, changes or destroys it (ADR-008). Destroying this stack revokes the grant.
+resource "aws_kms_grant" "autoscaling" {
+  count = var.kms_key_arn == null ? 0 : 1
+
+  name              = "${local.name}-autoscaling-ebs"
+  key_id            = var.kms_key_arn
+  grantee_principal = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling"
+  operations        = ["Encrypt", "Decrypt", "ReEncryptFrom", "ReEncryptTo", "GenerateDataKey", "GenerateDataKeyWithoutPlaintext", "DescribeKey", "CreateGrant"]
+}
+
 # Interface endpoints (single AZ, 443 from the VPC only); empty list means nothing is created and nothing is billed.
 module "endpoints" {
   source = "../modules/vpc-endpoints"
@@ -77,10 +91,11 @@ module "eks" {
   enable_gpu_nodes               = var.enable_gpu_nodes
   gpu_instance_type              = var.gpu_instance_type
   gpu_capacity_type              = var.gpu_capacity_type
+  kms_key_arn                    = var.kms_key_arn
   gpu_volume_gb                  = var.gpu_volume_gb
 
   # Nodes need the endpoints to pull images and join, so create them first.
-  depends_on = [module.endpoints]
+  depends_on = [module.endpoints, aws_kms_grant.autoscaling]
 }
 
 # IRSA role for the AWS Load Balancer Controller (official IAM policy file, pinned in policies/).
