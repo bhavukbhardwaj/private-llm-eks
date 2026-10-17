@@ -56,6 +56,7 @@ Positive
 
 Negative / risks
 - **Quota limit:** both quotas are 4 vCPU, so only one g5.xlarge (4 vCPU) can run at a time, Spot or On-Demand, not both. A second GPU instance would need an 8 vCPU quota.
+- **What the worst case of Spot looks like:** AWS gives a 2-minute warning and reclaims the node; in-flight requests fail; the managed node group launches a replacement if capacity exists; the vLLM pod reschedules and the init container re-downloads the weights (about 30 seconds for a 1 GB model, 2 to 4 minutes for 7B); the emptyDir and any in-memory Prometheus data on that node are lost; if the AZ has no Spot capacity the pod stays Pending until it does (then try another instance type such as g4dn.xlarge, or the other AZ). Nothing permanent is lost and nothing extra is billed.
 - Spot can be interrupted with two minutes notice; a single AZ narrows the capacity pool. Mitigation: record evidence early, On-Demand fallback, retry another AZ.
 - t4g.small is tight: 2 GiB leaves little room, and Arm images must be available (mirrored) for add-ons; the system node is mixed-architecture with the x86 GPU node.
 - Prices are estimates; a Spot spike or a forgotten node can exceed the plan, which is why budgets and teardown discipline exist.
