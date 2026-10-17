@@ -22,3 +22,23 @@ models/
 # OS / editor
 .DS_Store
 .vscode/
+
+# Terraform plans / local overrides (keep .terraform.lock.hcl committed)
+*.tfplan
+tfplan
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# More secrets / local-only files
+.env.*
+.aws/
+*credentials*
+*.p12
+*.pfx
+secrets/
+*.secret
+.claude/settings.local.json
