@@ -31,6 +31,23 @@ The sandbox has a hard cost cap and must be torn down between sessions. Some res
    Plus `terraform.tfvars.example` documenting the inputs. Every `resource`, `data`, `module` and `output` block has a **one-line `#` comment directly above it** saying what it is or why it exists. Structure comes from the modules, not from many small files. Names use the standard plural forms (`variables.tf`, `outputs.tf`, `providers.tf`) because that is what readers expect.
 6. **Kubernetes/Helm resources are not managed from Terraform** (private cluster, see ADR-006); they are applied from the bastion using `k8s/`.
 
+## Terraform version and the features we rely on
+
+| Item | Value |
+|---|---|
+| Terraform in use | **1.16.6** (installed 2026-10-18, checked against HashiCorp's release check: it is the current release) |
+| Pin in code | `required_version = ">= 1.11.0, < 2.0.0"` (1.11 is where S3 native locking became generally available) |
+| AWS provider | `~> 6.0`, locked at 6.69.1 in the committed `.terraform.lock.hcl` |
+| Random provider | `~> 3.6`, locked at 3.9.1 |
+
+Why this matters: recent Terraform removes the need for a DynamoDB lock table.
+- **1.10** added S3 native state locking (experimental) and ephemeral values/resources.
+- **1.11** made S3 native locking **generally available** (`use_lockfile = true`), **deprecated the DynamoDB locking arguments**, and added write-only attributes (values that are never stored in state, useful for secrets).
+- So our backend sets `use_lockfile = true` and has **no `dynamodb_table`**. The lock is a small `.tflock` object next to the state file, created with an S3 conditional write.
+- **1.15** added `deprecated` on variables/outputs, `convert()`, variables and locals in module `source`/`version`, and `terraform validate` now checks the `backend` block.
+- **1.16** added `import` blocks inside modules (useful if we need to re-import the bootstrap bucket), and a `store` block on `terraform_data`.
+- Release notes read from the HashiCorp changelog on 2026-10-18; features not listed above were not used or checked.
+
 ## Alternatives considered
 
 - **One stack with feature toggles.** Simpler to read, but teardown means careful targeted applies, and an accidental destroy would also wipe weights and mirrored images.

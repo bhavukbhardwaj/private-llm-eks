@@ -13,12 +13,13 @@ variable "project" {
 variable "environment" {
   description = "Environment name (also used as part of the state key path)."
   type        = string
-  default     = "sandbox"
+  default     = "assessment"
 }
 
 variable "owner" {
-  description = "Owner tag value. Set via TF_VAR_owner or an untracked tfvars file; do not commit personal details."
+  description = "Owner tag value. No personal details (no emails or names of individuals)."
   type        = string
+  default     = "platform"
 }
 
 variable "noncurrent_version_retention_days" {
