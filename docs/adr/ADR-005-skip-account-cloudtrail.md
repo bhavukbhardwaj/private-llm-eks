@@ -9,7 +9,7 @@ The Phase 0 hardening list included an account-wide CloudTrail trail. The sandbo
 
 ## Decision
 
-Do not create a CloudTrail trail for this exercise. Rely on CloudTrail Event History (management events, 90 days, free, on by default) for any after-the-fact investigation. EKS control-plane logs remain enabled via Terraform.
+Do not create a CloudTrail trail for this exercise. Rely on CloudTrail Event History (management events, 90 days, free, on by default) for any after-the-fact investigation. EKS control-plane logging is a separate toggle, off by default for the PoC (see ADR-008).
 
 ## Alternatives considered
 

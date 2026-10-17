@@ -18,9 +18,10 @@ Total budget is USD 150 (personal alerts are set lower). The stack is built, use
    - The `kms` interface endpoint is still created, as the brief lists it.
    - The Terraform code keeps a `kms` module and a `use_cmk` variable (default `false`). Setting it to `true` would create a customer-managed key and switch EBS, S3 and EKS secrets to it, so the production-grade setup is a one-variable change. **Operator decision (2026-10-18): the CMK is not created or applied; `use_cmk` stays `false`.** The CMK path exists as reviewed code only.
 4. **Single working AZ.** Two private subnets are created in two AZs (EKS and the internal ALB require subnets in at least two AZs), but nodes, the bastion, the SSM and other interface endpoints, and all pods are placed in one primary AZ (variable `primary_az`) so traffic does not cross AZs. The AZ is chosen by checking which AZ offers the needed instance types (system, g5 or equivalent) with good Spot price.
-5. No NAT gateway at all (also a cost saving, about $0.045/hr plus data) and no internet gateway.
+5. **No CloudWatch Logs spend in the PoC.** EKS control-plane logging is off by default (`enable_eks_control_plane_logs = false`), no Container Insights or CloudWatch agent is installed, VPC flow logs are off, and Session Manager session logging stays off. Operational logs we need are collected inside the cluster with Loki and Promtail (or Grafana Alloy) and viewed in Grafana, stored on the node or in S3 (free S3 gateway endpoint). Note that Loki/Promtail only see pod and node logs; the EKS control-plane logs (including the audit log) are produced by AWS and can only be delivered to CloudWatch Logs, so they are not available when the toggle is off.
+6. No NAT gateway at all (also a cost saving, about $0.045/hr plus data) and no internet gateway.
 
-6. **Every feature that costs money is a feature toggle, implemented in code and off by default for the PoC**, so a real deployment turns them on without code changes:
+7. **Every feature that costs money is a feature toggle, implemented in code and off by default for the PoC**, so a real deployment turns them on without code changes:
 
    | Toggle | Stack | Default (PoC) | What it adds when `true` | Rough cost |
    |---|---|---|---|---|
@@ -31,9 +32,10 @@ Total budget is USD 150 (personal alerts are set lower). The stack is built, use
    | `enable_gpu_nodes` | platform | `false` until needed | GPU managed node group (taint, NVIDIA AMI) | ~$0.15 to $0.50/hr Spot |
    | `multi_az` | foundation, platform | `false` | Nodes, endpoints and bastion spread over both AZs | doubles endpoint cost, adds cross-AZ transfer |
    | `enable_flow_logs` | foundation | `false` | VPC flow logs to CloudWatch/S3 | log ingestion and storage |
-   | `eks_log_retention_days` | platform | 3 | CloudWatch retention for control-plane logs (logging itself stays on, as required) | per-GB ingestion |
+   | `enable_eks_control_plane_logs` | platform | `false` | EKS control-plane logs (`api`, `audit`, `authenticator`) delivered to CloudWatch Logs | CloudWatch ingestion (about $0.50/GB) and storage |
+| `eks_log_retention_days` | platform | 3 | Retention for those log groups, only used when the toggle above is `true` | storage |
 
-   The EKS control plane, control-plane logging, and the required security settings are not toggles: they stay on in every run. Toggles are plain variables with documented defaults in `terraform.tfvars.example`; they are never hard-coded off or on in module code.
+   The EKS control plane itself, private networking, IRSA, no-public-ingress and encryption at rest are not toggles: they stay on in every run.
 
 ## Alternatives considered
 
@@ -52,4 +54,5 @@ Negative / risks
 - AWS-managed keys cannot have a custom policy, are not individually disable-able, and give less control over audit and revocation.
 - Single working AZ means no AZ resilience: an AZ outage or Spot capacity shortage in that AZ stops the system. Single-AZ GPU Spot also narrows the capacity pool; fall back to another AZ or On-Demand if Spot is unavailable.
 - The internal ALB still has load balancer nodes in both AZs, so a small amount of cross-AZ traffic (ALB node to pod) can occur; negligible at load-test volume.
+- **Deviation from brief 2.2** ("Enable control-plane logging for the EKS cluster (`api`, `audit`, `authenticator`)"): off by default. The code supports it, so the evidence of the required setting is one variable. The README must state the deviation, and the law-firm answer must say that production needs the audit log on and shipped to an immutable store. Optional, if wanted: turn the toggle on for a short window to capture evidence; cost is only the ingested volume (a small idle cluster typically produces a few MB to a few hundred MB per day), so it is cents, but only with the operator's approval.
 - Spot interruptions can disrupt demos; record evidence early.
