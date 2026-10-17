@@ -9,7 +9,7 @@ Total budget is USD 150 (personal alerts are set lower). The stack is built, use
 
 ## Decision
 
-1. **Spot capacity** for the system nodes (Graviton), the bastion (t4g.micro) and the GPU node, with On-Demand as a documented fallback.
+1. **Spot capacity** for the system node (t4g.small), the bastion (t4g.micro) and the GPU node, with On-Demand as a documented fallback.
 2. **S3 gateway VPC endpoint** (free) for ECR layer pulls, tools and model weights. Interface endpoints are created only in `platform` and destroyed when idle.
 3. **Default (AWS-managed) encryption instead of a customer-managed KMS key, for the sandbox:**
    - EBS: account-default encryption with the AWS-managed `aws/ebs` key; node volumes are encrypted.

@@ -1,18 +1,23 @@
 # ADR-009: Model sizing strategy (small model for development, 7B for the final run)
 
-- **Status:** Proposed (2026-10-18)
+- **Status:** Accepted (2026-10-18)
 - **Related:** [ADR-000](ADR-000-skeleton-first-scope.md), ADR-002 (model delivery, to be written), [task.md](../../task.md) section 2.3
 
 ## Context
 
 The brief asks for a 7B-class open-weight model on one A10G, with weights stored in S3. The graded point is that the platform works end to end (GPU schedules, `nvidia-smi` evidence, S3 load via IRSA, probes, metrics), not model quality. Model choice changes only configuration: `--model`, `--served-model-name`, `--max-model-len`, `--gpu-memory-utilization`, and possibly dtype or quantisation flags; the Terraform, manifests, dashboards and load test are identical. A 7B fp16 model is about 15 GB; storage in S3 is about $0.35/month, so size is a time cost (upload, init-container sync, load into GPU), not a money cost.
 
-## Decision (proposed)
+## Decision
 
 1. Build and debug with a **small instruct model** (for example Qwen2.5-0.5B or 1.5B-Instruct, 1 to 3 GB) on the cheapest available GPU Spot instance. Fast sync, fast start, low cost.
 2. For the final demo and recorded evidence, switch to a **7B-class model** (for example Qwen2.5-7B-Instruct, pinned revision) on g5.xlarge, if quota, time and budget allow. Keep the same manifests; change only the model arguments and the bucket prefix.
 3. A CPU-only model server is **not** used for the final system. The assessment's top criterion requires a real GPU workload (`nvidia-smi`). During the skeleton phase, a placeholder service on Graviton stands in (ADR-000).
 4. The exact model, revision hash, and chosen vLLM arguments with reasons are recorded in ADR-002 and the README.
+
+## Notes added on acceptance
+- The GPU stage starts only when AWS approves the G/VT quota increases (ADR-001). Until then the CPU stage proceeds.
+- CPU stage uses the vLLM CPU backend (supports Arm) with a Qwen2.5-0.5B-Instruct class model on the Graviton node, or a stub if the CPU image is not available for arm64. Availability of a ready-made vLLM CPU image for arm64 has **not** been verified; building it from source is the fallback. The GPU pieces (taint, device plugin, `nvidia-smi`, DCGM) cannot be proven on CPU and are required by the brief's first criterion.
+- The GPU hourly price does not depend on the model size (ADR-001); a smaller model only reduces upload, sync and start time.
 
 ## Alternatives considered
 

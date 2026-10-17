@@ -16,7 +16,7 @@ The sandbox has a hard cost cap and must be torn down between sessions. Some res
    - `platform` reads `foundation` outputs through `terraform_remote_state`. Shared logic lives in `terraform/modules/*`.
 2. **State layout** in one bucket, one key per stack and environment, not one shared file:
    `s3://<state-bucket>/<project>/<environment>/<stack>/terraform.tfstate`, for example `private-llm/sandbox/foundation/terraform.tfstate` and `private-llm/sandbox/platform/terraform.tfstate`. The bucket name carries a random suffix (no account ID in names).
-3. **Locking:** S3 native locking (`use_lockfile = true`, Terraform 1.10 or later) with **no DynamoDB table**. Bucket has versioning, default encryption, and public access blocked.
+3. **Locking:** S3 native locking (`use_lockfile = true`, generally available from Terraform 1.11; we pin 1.11 or later) with **no DynamoDB table**. Bucket has versioning, default encryption, and public access blocked.
 4. **Versions:** `required_version` and provider versions are pinned in every stack; `.terraform.lock.hcl` is committed. Backend config is partial (bucket passed at `init`) so no environment-specific values are hard-coded.
 5. **Simple, uniform file layout and readable code.** Every stack (and module) uses the same small set of files so anyone, human or another AI session, can find things without a guide:
 

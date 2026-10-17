@@ -11,7 +11,7 @@ The brief ([task.md](../../task.md)) combines platform work (VPC, EKS, endpoints
 ## Decision
 
 1. **Build a high-level skeleton first, ignoring models, GPUs and LLM serving.** Phase 1 delivers only what the platform needs: Terraform state backend, VPC (private subnets, 2+ AZs), VPC endpoints (no NAT), KMS, EKS with control-plane logging, IRSA/OIDC, AWS Load Balancer Controller, an internal ALB, and tagging. A placeholder workload (e.g. a small HTTP echo/nginx pod) stands in for vLLM to prove the internal-ALB path, IRSA, and the endpoint-only image pulls.
-2. **Use Graviton (arm64) instances on Spot, in a US region (us-east-1), to keep cost minimal** while building the skeleton. Initial choice: `t4g`/`m6g`/`m7g` class (e.g. `m6g.large`) Spot for the managed node group(s). Images must be multi-arch or arm64 (mirrored into private ECR).
+2. **Use Graviton (arm64) instances on Spot, in a US region (us-east-1), to keep cost minimal** while building the skeleton. Initial choice: `t4g.small` Spot for the system node and `t4g.micro` Spot for the bastion (see ADR-001). Images must be multi-arch or arm64 (mirrored into private ECR, see ADR-003).
 3. **Tweak later.** GPU node group, NVIDIA device plugin, DCGM, vLLM, model-in-S3 and the load test are added in a later phase, with the node taint/toleration and AMI already designed into the module so the change is additive.
 
 ## Alternatives considered
