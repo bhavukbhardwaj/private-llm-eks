@@ -20,6 +20,21 @@ Total budget is USD 150 (personal alerts are set lower). The stack is built, use
 4. **Single working AZ.** Two private subnets are created in two AZs (EKS and the internal ALB require subnets in at least two AZs), but nodes, the bastion, the SSM and other interface endpoints, and all pods are placed in one primary AZ (variable `primary_az`) so traffic does not cross AZs. The AZ is chosen by checking which AZ offers the needed instance types (system, g5 or equivalent) with good Spot price.
 5. No NAT gateway at all (also a cost saving, about $0.045/hr plus data) and no internet gateway.
 
+6. **Every feature that costs money is a feature toggle, implemented in code and off by default for the PoC**, so a real deployment turns them on without code changes:
+
+   | Toggle | Stack | Default (PoC) | What it adds when `true` | Rough cost |
+   |---|---|---|---|---|
+   | `use_cmk` | foundation | `false` | Customer-managed KMS key for EBS, S3, EKS secrets, logs | $1/month per key |
+   | `enable_interface_endpoints` | platform | `false` until needed | ecr.api, ecr.dkr, sts, logs, kms, ec2, elasticloadbalancing | ~$0.01/hr per AZ each |
+   | `enable_ssm_endpoints` | platform | `false` until needed | ssm, ssmmessages, ec2messages for the bastion | ~$0.01/hr per AZ each |
+   | `enable_bastion` | platform | `false` until needed | Spot t4g.micro bastion | under $0.01/hr |
+   | `enable_gpu_nodes` | platform | `false` until needed | GPU managed node group (taint, NVIDIA AMI) | ~$0.15 to $0.50/hr Spot |
+   | `multi_az` | foundation, platform | `false` | Nodes, endpoints and bastion spread over both AZs | doubles endpoint cost, adds cross-AZ transfer |
+   | `enable_flow_logs` | foundation | `false` | VPC flow logs to CloudWatch/S3 | log ingestion and storage |
+   | `eks_log_retention_days` | platform | 3 | CloudWatch retention for control-plane logs (logging itself stays on, as required) | per-GB ingestion |
+
+   The EKS control plane, control-plane logging, and the required security settings are not toggles: they stay on in every run. Toggles are plain variables with documented defaults in `terraform.tfvars.example`; they are never hard-coded off or on in module code.
+
 ## Alternatives considered
 
 - **Customer-managed KMS key from day one.** Matches the brief literally and is better practice (key policy, rotation control, audit through CloudTrail), costing about $1/month (billed prorated hourly) plus request fees. Not applied, per operator decision to avoid any spend; kept as a code toggle only.
