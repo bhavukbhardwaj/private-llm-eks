@@ -1,0 +1,9 @@
+# Copy to terraform.tfvars (gitignored) only if you need to override a default.
+region      = "us-east-1"
+project     = "private-llm"
+environment = "assessment"
+owner       = "platform"
+
+azs                  = ["us-east-1a", "us-east-1b"]
+private_subnet_cidrs = ["10.20.1.0/24", "10.20.2.0/24"]
+primary_az           = "us-east-1a" # confirm with the instance-type availability check before platform apply
