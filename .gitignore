@@ -1,0 +1,24 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+.terraform.tfstate.lock.info
+
+# Secrets / local config
+.env
+*.pem
+*.key
+kubeconfig*
+
+# Model weights
+*.safetensors
+*.bin
+*.gguf
+models/
+
+# OS / editor
+.DS_Store
+.vscode/
