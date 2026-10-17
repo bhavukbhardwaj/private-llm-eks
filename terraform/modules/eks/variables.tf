@@ -90,6 +90,17 @@ variable "gpu_instance_type" {
   default     = "g5.xlarge"
 }
 
+variable "gpu_capacity_type" {
+  description = "SPOT (default). ON_DEMAND is kept only as a documented fallback and is NOT used: this is a PoC, so we accept Spot interruptions instead of paying about 2.3x (ADR-001)."
+  type        = string
+  default     = "SPOT"
+
+  validation {
+    condition     = contains(["SPOT", "ON_DEMAND"], var.gpu_capacity_type)
+    error_message = "gpu_capacity_type must be SPOT or ON_DEMAND."
+  }
+}
+
 variable "gpu_volume_gb" {
   description = "Root volume size of GPU nodes in GB (gp3; 60 for the 7B run, 40 is enough for a small model)."
   type        = number

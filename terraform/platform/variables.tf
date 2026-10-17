@@ -109,6 +109,12 @@ variable "gpu_instance_type" {
   default     = "g5.xlarge"
 }
 
+variable "gpu_capacity_type" {
+  description = "SPOT (default, PoC). ON_DEMAND is a documented fallback that we deliberately do not use (cost, ADR-001)."
+  type        = string
+  default     = "SPOT"
+}
+
 variable "gpu_volume_gb" {
   description = "Root volume of GPU nodes in GB (gp3)."
   type        = number

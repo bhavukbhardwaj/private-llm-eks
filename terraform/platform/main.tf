@@ -76,6 +76,7 @@ module "eks" {
   system_volume_gb               = var.system_volume_gb
   enable_gpu_nodes               = var.enable_gpu_nodes
   gpu_instance_type              = var.gpu_instance_type
+  gpu_capacity_type              = var.gpu_capacity_type
   gpu_volume_gb                  = var.gpu_volume_gb
 
   # Nodes need the endpoints to pull images and join, so create them first.

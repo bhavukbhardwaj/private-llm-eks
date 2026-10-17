@@ -21,7 +21,7 @@ Spot prices sampled from the EC2 API on 2026-10-18, one hour of history, by AZ (
 
 ## Decision
 
-1. **GPU node: `g5.xlarge` on Spot** (1 x A10G 24 GB, 4 vCPU, 16 GiB RAM), one node, taint `nvidia.com/gpu=true:NoSchedule`, AL2023 NVIDIA AMI, gp3 60 GB root volume. Fallback: On-Demand `g5.xlarge` if Spot capacity is unavailable or interrupted at a critical moment; recorded when used.
+1. **GPU node: `g5.xlarge` on Spot** (1 x A10G 24 GB, 4 vCPU, 16 GiB RAM), one node, taint `nvidia.com/gpu=true:NoSchedule`, AL2023 NVIDIA AMI, gp3 60 GB root volume. **Spot only (operator decision, 2026-10-18): this is a PoC, so we do not pay On-Demand.** The fallback is kept in code as the variable `gpu_capacity_type` (default `SPOT`, `ON_DEMAND` possible) with a comment saying it is unused. If Spot is interrupted or unavailable, the cost is a restart and a wait, not data loss: nodes are disposable, weights are in S3 and the infrastructure is code.
 2. **System node group: `t4g.small` on Spot, two nodes** (Graviton, 2 vCPU, 2 GiB each, about 11 pods per node, so about 22 pods and 4 GiB in total; aws-node, kube-proxy and two CoreDNS pods use 4 pod slots before any workload). Chosen over `t4g.micro`, which cannot hold the cluster add-ons (1 GiB, 4 pods). Revisit to `t4g.medium` if Prometheus and Grafana do not fit.
 3. **Bastion: `t4g.micro` on Spot** (see ADR-006).
 4. **During development use the cheapest GPU that works** (`g5g.xlarge` or `g4dn.xlarge`, or CPU only, see ADR-009) and switch to `g5.xlarge` only for the final evidence run and recording. Instance type is a single variable.

@@ -266,7 +266,7 @@ resource "aws_eks_node_group" "gpu" {
   node_role_arn   = aws_iam_role.node.arn
   subnet_ids      = var.node_subnet_ids
   ami_type        = "AL2023_x86_64_NVIDIA"
-  capacity_type   = "SPOT"
+  capacity_type   = var.gpu_capacity_type # SPOT for the PoC; ON_DEMAND is the unused fallback (ADR-001)
   instance_types  = [var.gpu_instance_type]
 
   scaling_config {
