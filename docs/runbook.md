@@ -22,12 +22,34 @@ chmod +x ~/k8s/bootstrap.sh
 - Bucket name now: `private-llm-tools-ded4d08d`. `scripts/stage-k8s.sh` prints the exact command for the current bucket.
 - Re-run `scripts/stage-k8s.sh` after changing anything under `k8s/`, then repeat the three bastion commands.
 
+## 2b. Install k9s and stern on the bastion
+Stage them from the laptop once (`scripts/stage-tools.sh`, skips what is already there), then on the **bastion**:
+```
+sudo aws s3 sync s3://private-llm-tools-ded4d08d/bin/ /usr/local/bin/ --region us-east-1
+sudo chmod +x /usr/local/bin/*
+k9s
+```
+- **k9s:** terminal UI. `:pods`, `:nodes`, `:ns`; `l` logs, `s` shell into a pod, `d` describe, `ctrl-d` delete, `?` help, `:q` quit.
+- **stern:** tail logs of many pods: `stern -n llm vllm`.
+- **jq, yq and others:** `sudo dnf install -y jq` works without internet (Amazon Linux repos are served through the S3 endpoint).
+
 ## 3. Day-to-day on the bastion
 ```
 kubectl get nodes -o wide
 kubectl get pods -A
 kubectl -n demo get ingress
 ```
+
+## 3b. GPU checks (after the GPU node is on)
+```
+kubectl get nodes -l role=gpu -o wide
+kubectl describe node -l role=gpu | grep -A8 "Allocatable"        # shows nvidia.com/gpu: 1
+kubectl run smi --rm -it --restart=Never --image=<ecr>/busybox:1.38.0 ...   # see k8s/gpu/ for the nvidia-smi pod
+kubectl -n llm exec -it deploy/vllm -- nvidia-smi
+kubectl -n llm exec -it deploy/vllm -- nvidia-smi dmon -c 5        # utilisation, memory, temperature over time
+kubectl -n monitoring port-forward svc/dcgm-exporter 9400:9400     # then curl localhost:9400/metrics | grep DCGM_FI_DEV_GPU_UTIL
+```
+- GPU tools run inside pods on the GPU node (`nvidia-smi` is in the vLLM and CUDA images), not on the bastion, which has no GPU.
 
 ## 4. View Grafana in the laptop browser
 - Bastion: `kubectl -n monitoring port-forward svc/grafana 3000:80 --address 127.0.0.1`
