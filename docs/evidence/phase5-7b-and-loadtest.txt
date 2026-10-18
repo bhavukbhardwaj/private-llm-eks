@@ -31,3 +31,6 @@ Load test (job on a system node, through the internal ALB, 128 max output tokens
 $ ~/k8s/ask.sh "Explain in two sentences why private networking matters for confidential documents."
 "Private networking ensures that confidential documents are only accessible to authorized individuals within a secure environment, reducing the risk of unauthorized access or data breaches. It provides ..."
 [tokens: 42 prompt, 45 completion]
+
+Second run by the owner (14:25 IST), same settings: 200 requests, concurrency 8, 42.17 s, 4.742 req/s, 229.69 tokens/s, p50 1.691 s, p95 1.83 s, 0 errors.
+Grafana screenshot of the 7B run: docs/evidence/grafana-dashboard-under-load.png

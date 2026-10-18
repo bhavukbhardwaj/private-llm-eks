@@ -56,7 +56,7 @@ Load test from a pod in the cluster, through the internal ALB, 128 max output to
 
 GPU memory in use: 19.8 GiB of 22.5 GiB. Raw output: [docs/evidence/phase5-7b-and-loadtest.txt](docs/evidence/phase5-7b-and-loadtest.txt). Proof the GPU runs: [docs/evidence/phase3-nvidia-smi.txt](docs/evidence/phase3-nvidia-smi.txt).
 
-Grafana dashboard under load (tokens/s, latency p50 and p95, requests in flight, GPU utilisation, GPU memory). This screenshot was taken during an earlier run with a smaller 0.5B model:
+Grafana dashboard during the 200-request run on the 7B model (about 14:24): requests in flight reach 8, GPU utilisation hits 100%, GPU memory stays at about 19 GiB, latency p50 and p95 are about 1.75 s and 1.97 s, temperature peaks at 48 °C.
 
 ![Grafana dashboard under load](docs/evidence/grafana-dashboard-under-load.png)
 
