@@ -1,76 +1,43 @@
-# ADR-005: Delivery and Terraform (stacks, state, readable code, image mirroring)
+# ADR-005: Delivery and Terraform (stacks, state, images, monitoring)
 
 - **Status:** Accepted (2026-10-18)
-- **Related:** [ADR-003](ADR-003-cost-and-sizing.md), [ADR-004](ADR-004-security.md), [task.md](../../task.md) sections 2.1 and 2.2
-- **Index:** D1 stacks and state, D2 locking and versions, D3 readable code, D4 images with `crane copy`, D5 monitoring without the Prometheus Operator
 
 ## Context
-- Some things are cheap but slow to recreate (model weights, mirrored images). Others bill hourly (EKS, nodes, endpoints, bastion).
-- The brief asks for remote state, locking, pinned versions, tags and a private cluster.
-- No NAT and no internet gateway, so nodes cannot pull from Docker Hub, quay, nvcr or registry.k8s.io.
-- Mixed architecture: arm64 system nodes, x86_64 GPU node.
+- Some things are cheap but slow to recreate (weights, images); others bill hourly (EKS, nodes, endpoints).
+- Nodes have no internet, so they cannot pull from Docker Hub, quay or nvcr. System nodes are arm64; the GPU node is x86_64.
 
 ## Decision
-**D1 Three stacks, one state file each**
-- `terraform/bootstrap/`: state bucket only, local state, applied once.
-- `terraform/foundation/` (persistent): VPC, S3 gateway endpoint, ECR repos, models and tools buckets.
-- `terraform/platform/` (disposable): endpoints, EKS, nodes, bastion, IRSA, add-ons. Destroying it stops the hourly bill.
-- `platform` reads `foundation` through `terraform_remote_state`. Shared code is in `terraform/modules/*`.
-- State key: `<project>/<environment>/<stack>/terraform.tfstate`, e.g. `private-llm/assessment/foundation/terraform.tfstate`. Bucket name has a random suffix, no account ID.
-- Kubernetes and Helm resources are applied from the bastion, not by Terraform (private cluster).
-- The EKS module is hand-written, not the community module.
+**Three Terraform stacks**
+- `bootstrap`: state bucket. `foundation` (persistent): VPC, S3 endpoint, ECR, buckets. `platform` (disposable): endpoints, EKS, nodes, bastion, IRSA.
+- `platform` reads `foundation` through remote state. Destroying `platform` stops the hourly bill.
+- Kubernetes objects are applied from the bastion, not by Terraform (the API is private).
 
-**D2 S3 native locking, pinned versions**
-- `use_lockfile = true`, **no DynamoDB table**. S3 locking arrived in Terraform 1.10 and became generally available in 1.11, which also deprecated the DynamoDB arguments.
-- Terraform `>= 1.11, < 2.0` (installed 1.16.6). AWS provider `~> 6.0` (locked 6.69.1). Random `~> 3.6` (locked 3.9.1). Lock file committed.
-- Bucket passed at `init`, so no environment values are hard-coded.
-- Tags `Project`, `Environment`, `Owner` come from provider `default_tags`, and are copied onto launch-template resources.
+**State and versions**
+- S3 state with **native locking (`use_lockfile`), no DynamoDB** (generally available since Terraform 1.11).
+- Terraform `>= 1.11` (installed 1.16.6), AWS provider `~> 6.0`, lock file committed. Tags from provider `default_tags`.
+- Every stack uses the same files: `main.tf`, `variables.tf`, `outputs.tf`, `providers.tf` (+ `backend.tf`). One-line comment above every block. The EKS module is hand-written.
 
-**D3 Same five files everywhere, one-line comment per block**
-- Files: `main.tf`, `variables.tf`, `outputs.tf`, `providers.tf`, plus `backend.tf` (foundation, platform) and `terraform.tfvars.example`.
-- Every `resource`, `data`, `module` and `output` has a one-line `#` comment above it.
-- Split `main.tf` only past about 200 lines.
+**Images**
+- One private ECR repo per image. Copy with **`crane copy`**, never `docker pull` and `push`: it needs no Docker, keeps digests, and copies the right architecture (`arm64` for system nodes, `amd64` for the GPU node).
+- Only our load-test image is built (`docker buildx`, arm64). Big images are copied from AWS CloudShell (vLLM: about 1 minute, against 30+ minutes from a laptop).
 
-**D4 Images: `crane copy` into private ECR, never `docker pull` + `docker push`**
-- One ECR repo per image (immutable tags, scan on push, keep last 5).
-- `crane copy` streams registry to registry, keeps the digest, needs no Docker daemon.
-- Platform per image:
-  - `linux/arm64`: LB controller, Prometheus stack, Grafana, Loki.
-  - `linux/amd64`: vLLM, NVIDIA device plugin, DCGM exporter.
-  - All platforms: busybox, node-exporter, aws-cli.
-- Only our load-test client is built: `docker buildx build --platform linux/arm64 --push`.
-- List and pins: `scripts/images.txt`. Script: `scripts/mirror-images.sh` (`--dry-run`, `ONLY=`, skips existing tags).
-- Manifests and Helm values use ECR URLs only.
-- **Big images: run `crane copy` from AWS CloudShell** (free, data-centre bandwidth). vLLM (9.04 GB) took about 1 minute there, against 30+ minutes from the laptop at 10 to 40 Mbit/s.
-
-**D5 Plain Prometheus and Grafana, no Prometheus Operator**
-- Prometheus scrapes every pod annotated `prometheus.io/scrape: "true"` (vLLM `:8000/metrics`, DCGM exporter `:9400/metrics`). The brief allows "a ServiceMonitor (or equivalent scrape config)".
-- The operator stack needs 3 or more extra images not yet mirrored (config-reloader sidecars, webhook certgen) and CRDs. Plain Prometheus, Grafana and the DCGM exporter use only images already in ECR.
-- Grafana loads the data source and the dashboard JSON (`dashboards/vllm-gpu.json`, 9 panels) by provisioning. Admin password is a generated Secret, never in git. Retention is 6 hours in an `emptyDir`.
+**Monitoring**
+- Plain Prometheus scrapes pods annotated `prometheus.io/scrape` (vLLM, DCGM). Grafana loads the dashboard JSON by provisioning. No Prometheus Operator, so no ServiceMonitor (the brief allows an equivalent scrape config).
 
 ## Alternatives considered
-- **D1 One stack with toggles:** teardown needs targeted applies; a destroy could wipe weights and images.
-- **D1 One stack per component:** more wiring, slower in 3 days.
-- **D1 Community EKS module:** less code, but opaque and version-sensitive.
-- **D2 S3 + DynamoDB locking (brief default):** adds a table and uses the deprecated path.
-- **D2 Local state:** no locking or versioning, easy to lose.
-- **D4 ECR pull-through cache:** needs upstream credentials for some registries and hides what is pinned.
-- **D4 NAT gateway for the first pull:** about $0.045/hr plus data, against the brief.
-- **D4 `docker pull/push`:** fetches only the laptop architecture (arm64) and breaks the x86 GPU node.
-- **D5 kube-prometheus-stack (operator, ServiceMonitor):** the usual choice, but more images, CRDs and pods on 2 small nodes (about 11 pods each) for no extra evidence.
+- **One stack:** a destroy could also wipe weights and images.
+- **S3 plus DynamoDB locking:** adds a table and uses the deprecated path.
+- **Community EKS module:** less code, but opaque.
+- **`docker pull` and `push`:** pulls only the laptop architecture (arm64) and breaks the GPU node.
+- **kube-prometheus-stack:** more images, CRDs and pods on two small nodes.
 
 ## Consequences
 **Positive**
-- `terraform destroy` in `platform` stops the bill and keeps weights and images.
-- Small blast radius per apply; one uniform layout that is easy to review.
-- One fewer AWS resource (no lock table).
-- Pinned, scannable, multi-arch images; no internet path at runtime. Storage about $0.10/GB-month.
+- Cheap destroy and rebuild; small blast radius per apply.
+- Pinned, private, multi-arch images; no internet path at runtime.
 
 **Negative**
-- Stack outputs are an interface. Apply order foundation then platform; destroy in reverse.
-- A stuck lock needs `terraform force-unlock` or deleting the `.tflock` object.
-- Bootstrap's local state file must be kept to destroy the bucket (gitignored).
-- More hand-written EKS code to maintain; larger `main.tf` files.
-- D5: no ServiceMonitor objects and no alert rules; scrape targets are chosen by pod annotation. Data is lost when Prometheus restarts (PoC).
-- A manual mirror step on every version bump. Some charts hard-code registries; check values for public references.
-- From a laptop, vLLM (9.04 GB) takes 30+ minutes at 10 to 40 Mbit/s, and a network switch can lose the layer in flight (the largest is 5.15 GB). Use CloudShell for big images.
+- Apply foundation first, destroy platform first.
+- A manual mirror step for every new image version.
+- No alert rules; Prometheus keeps 6 hours of data in an `emptyDir`.
+- The `bootstrap` local state file must be kept to destroy the state bucket.

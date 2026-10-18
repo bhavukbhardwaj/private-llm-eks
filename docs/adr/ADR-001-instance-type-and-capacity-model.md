@@ -1,68 +1,48 @@
-# ADR-001: Instance types and capacity model (Spot only)
+# ADR-001: Instance types and capacity (g5.xlarge, On-Demand because Spot had none)
 
-- **Status:** Accepted (2026-10-18). Quotas verified live at 02:25 IST: Spot G/VT 4 vCPU, On-Demand G/VT 4 vCPU.
-- **Related:** [ADR-003](ADR-003-cost-and-sizing.md) (cost, AZ), [ADR-004](ADR-004-security.md) (bastion), [ADR-006](ADR-006-scope-and-model-strategy.md) (model size)
+- **Status:** Accepted (2026-10-18)
 
 ## Context
-- The brief wants a CPU system node group and one GPU group (`g5.xlarge`, A10G, or equivalent). Spot is allowed.
-- Budget is USD 150 and everything is torn down when idle.
-- Quota limit is 4 vCPU, which is exactly one xlarge GPU instance.
-- Spot prices, EC2 API, 2026-10-18 (USD/hr):
+- The brief wants one GPU node (`g5.xlarge`, A10G) and a CPU system node. Budget is USD 150.
+- GPU quota is 4 vCPU (Spot and On-Demand each), enough for one `g5.xlarge`.
+- Spot prices (EC2 API, 2026-10-18, USD/hr; On-Demand list prices are from memory):
 
-| Instance | GPU | Spot (min to max over AZs) | On-Demand list* |
+| Instance | GPU | Spot | On-Demand |
 |---|---|---|---|
-| g5.xlarge | A10G 24 GB | 0.429 (1c) to 0.533 (1a) | 1.006 |
-| g4dn.xlarge | T4 16 GB | 0.293 to 0.350 | 0.526 |
-| g5g.xlarge (Arm) | T4G 16 GB | 0.128 to 0.141 | about 0.42 |
-| t4g.small | none, 2 vCPU, 2 GiB | 0.0069 to 0.0089 | 0.0168 |
-| t4g.micro | none, 2 vCPU, 1 GiB | 0.0032 to 0.0042 | 0.0084 |
-
-\*List prices are from memory. Re-check before the final cost table. EKS control plane is $0.10/hr.
+| g5.xlarge | A10G 24 GB | 0.43 to 0.53 | 1.006 |
+| g4dn.xlarge | T4 16 GB | 0.29 to 0.35 | 0.526 |
+| g5g.xlarge | T4G 16 GB (Arm) | 0.13 to 0.14 | about 0.42 |
+| t4g.small | none, 2 GiB | 0.007 to 0.009 | 0.0168 |
+| t4g.micro | none, 1 GiB | 0.003 to 0.004 | 0.0084 |
 
 ## Decision
-- **GPU node:** `g5.xlarge` on **Spot**, one node, AL2023 NVIDIA AMI, taint `nvidia.com/gpu=true:NoSchedule`, gp3 60 GB.
-- **Spot first (operator decision):** it is a PoC, so On-Demand is not the default.
-- **On-Demand used for the evidence run (operator decision, 2026-10-18 12:30 IST):** Spot launches failed repeatedly with `UnfulfillableCapacity` for g5.xlarge in 1c, and a wider pool (g5, g6, g4dn; 1c and 1d) also failed. A second node group `gpu-ondemand` (`enable_gpu_ondemand_nodes`, `g5.xlarge`, About $1.01/hr) was added. The Spot group stays in code behind `enable_gpu_nodes`; both groups carry the same taint and `role=gpu` label.
-- **Fallback kept in code:** variable `gpu_capacity_type` (default `SPOT`, `ON_DEMAND` possible), commented as unused.
-- **System nodes:** `t4g.small` Spot, **two** nodes (about 11 pods each; add-ons take 4 slots per node).
-- **Bastion:** `t4g.micro` Spot (ADR-004).
-- **Wider Spot pool (added 2026-10-18 after `UnfulfillableCapacity` for g5.xlarge in 1c):** the GPU group may use `g5.xlarge`, `g6.xlarge` and `g4dn.xlarge`, in both 1c and 1d (`gpu_instance_types`, `gpu_use_both_azs`). Still Spot. Spot placement scores were 1 (lowest) for all three types in every AZ.
-- **Develop on the cheapest GPU or CPU**, switch to `g5.xlarge` for the final evidence run. One variable changes it.
-- **GPU runs only while testing** (toggle `enable_gpu_nodes`, ADR-003).
+- **GPU:** `g5.xlarge` in us-east-1c, taint `nvidia.com/gpu=true:NoSchedule`, gp3 60 GB, AL2023 NVIDIA image.
+- **Spot first, On-Demand in the end.** Spot failed with `UnfulfillableCapacity`, also after adding g6 and g4dn and a second AZ (placement score 1 everywhere). So the GPU group runs On-Demand (`enable_gpu_ondemand_nodes`). The Spot group stays in code (`enable_gpu_nodes`).
+- **System:** 2 x `t4g.small` Spot (about 11 pods each; add-ons use 4 slots per node).
+- **Bastion:** `t4g.micro` Spot.
+- **GPU is on only while testing.**
 
-**Cost estimate**
-
-| Item | Per hour | Per month (730 h) |
+| Cost | Per hour | Per month (730 h) |
 |---|---|---|
-| g5.xlarge Spot | 0.43 to 0.53 | 314 to 389 |
-| g5.xlarge On-Demand (not used) | 1.006 | 734 |
-| Platform without GPU (EKS 0.10, 2 x t4g.small + bastion about 0.02, 6 interface endpoints 0.06, 3 SSM endpoints 0.03, ALB about 0.03) | about 0.24 | about 175 |
-| Platform with g5 Spot | about 0.67 to 0.77 | about 490 to 560 |
+| Platform without GPU (EKS 0.10, nodes and bastion 0.02, 9 endpoints 0.09, ALB 0.03) | about 0.24 | about 175 |
+| GPU On-Demand | 1.006 | 734 |
+| GPU Spot (not available) | 0.43 to 0.53 | 314 to 389 |
 
-- Planned use: about 40 h platform + 10 h GPU = roughly **USD 15**. Estimates to be replaced by Cost Explorer numbers.
+Plan: about 40 h platform and 5 h GPU, roughly USD 15. Measured spend will replace this at the end.
 
 ## Alternatives considered
-- **`g4dn.xlarge` (T4, 16 GB):** about 35% cheaper, but 7B fp16 does not fit. Dev use only.
-- **`g5g.xlarge` (Arm, T4G, 16 GB):** cheapest, same memory limit, not the brief's A10G. Dev use only.
-- **`g6.xlarge` (L4, 24 GB):** same memory, newer GPU, but not the instance the brief names. Its Spot price was not sampled, so no price gain is shown.
-- **`g5.2xlarge`:** same A10G, but 8 vCPU and 32 GiB RAM for about $1.21/hr On-Demand (list, from memory). One replica does not need it, and it needs an 8 vCPU quota (we have 4).
-- **On-Demand:** about 2.3x the cost; kept only as an unused fallback.
-- **`t4g.micro` for system nodes:** 1 GiB and 4 pods, cannot hold the add-ons. `t4g.medium` is the upgrade path.
+- **g4dn.xlarge, g5g.xlarge (16 GB):** cheaper, but a 7B model in fp16 (about 15 GB) does not fit.
+- **g6.xlarge (L4, 24 GB):** not the instance the brief names; Spot price not sampled.
+- **g5.2xlarge:** same GPU, more CPU for more money, and needs an 8 vCPU quota.
+- **t4g.micro for system nodes:** 1 GiB and 4 pods cannot hold the add-ons.
 
 ## Consequences
 **Positive**
-- GPU costs about $0.43 to $0.53/hr and only while testing.
-- Final run uses the instance family the brief names, so a 7B fp16 model fits.
-- Cheap dev GPUs keep debugging cost near zero.
+- Final run uses the A10G the brief names; the 7B model fits.
+- The GPU costs money only while the node group exists.
 
 **Negative**
-- Only one GPU instance at a time (4 vCPU quota, Spot and On-Demand do not add up).
-- Worst case of Spot, in order:
-  - 2-minute warning, node is reclaimed, in-flight requests fail.
-  - Replacement node starts if capacity exists.
-  - Init container re-downloads weights (about 30 s for 1 GB, 2 to 4 min for 7B).
-  - `emptyDir` and in-memory Prometheus data are lost.
-  - No capacity in the AZ means the pod stays Pending; try `g4dn.xlarge` or the other AZ.
-  - Nothing permanent is lost and nothing extra is billed.
-- `t4g.small` is tight on memory; may need `t4g.medium` for Prometheus.
-- Prices are estimates; a forgotten node can overspend (budgets and teardown cover this).
+- On-Demand is about 2.3x the Spot price: about USD 1 per GPU hour.
+- One GPU at a time (4 vCPU quota).
+- `t4g.small` is tight on memory; `t4g.medium` is the upgrade.
+- Spot interruption would cost a restart and a model re-download (not a risk now, since the GPU is On-Demand).
