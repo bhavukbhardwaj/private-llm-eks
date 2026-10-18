@@ -13,25 +13,15 @@ A small, reproducible deployment that serves an open-weight model (Qwen2.5, via 
 - Pods reach AWS only through IRSA (no long-lived credentials). Humans use SSO. The Kubernetes API is private, reached through an SSM bastion.
 
 ## Architecture
-```
-                     AWS account, us-east-1, VPC 10.20.0.0/16  (no IGW, no NAT)
-  ┌──────────────────────────────────────────────────────────────────────────────────┐
-  │  private subnets: us-east-1c (working AZ) and us-east-1d                          │
-  │                                                                                    │
-  │  SSM bastion ──kubectl/helm──▶  EKS control plane (private endpoint only)         │
-  │  (Spot t4g.micro,                                                                  │
-  │   no inbound ports)        system nodes (2 x t4g.small Spot, arm64)                │
-  │        │                    ├─ AWS Load Balancer Controller                        │
-  │        │ curl               ├─ Prometheus ──scrapes──┐                             │
-  │        ▼                    └─ Grafana ◀─────────────┤                             │
-  │   internal ALB ──────────▶  GPU node (g5.xlarge, A10G, tainted)                    │
-  │   (scheme internal)         ├─ vLLM  ◀── init container: S3 sync (IRSA)           │
-  │                             └─ DCGM exporter, NVIDIA device plugin                 │
-  │                                                                                    │
-  │  VPC endpoints: S3 (gateway); ecr.api, ecr.dkr, sts, kms, ec2, elb, ssm (interface)│
-  └──────────────────────────────────────────────────────────────────────────────────┘
-   S3: model weights, tools        ECR: mirrored images        KMS: existing CMK for node EBS
-```
+Two diagrams (SVG for editing, PNG for slides). First, every AWS component and where it sits:
+
+![AWS architecture](docs/architecture/aws-architecture.png)
+
+Second, the four paths: how it is deployed, how an operator reaches it, how a request flows, and how metrics reach Grafana:
+
+![Deploy, operate, request and observe paths](docs/architecture/request-and-ops-flow.png)
+
+Sources: [aws-architecture.svg](docs/architecture/aws-architecture.svg), [request-and-ops-flow.svg](docs/architecture/request-and-ops-flow.svg).
 
 ## Repository layout
 ```
