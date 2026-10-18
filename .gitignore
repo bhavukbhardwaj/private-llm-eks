@@ -42,3 +42,6 @@ terraform.rc
 secrets/
 *.secret
 .claude/settings.local.json
+
+# Personal notes, never pushed
+private/
