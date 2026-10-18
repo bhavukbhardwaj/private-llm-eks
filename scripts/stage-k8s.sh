@@ -6,8 +6,8 @@ set -euo pipefail
 
 REGION="${AWS_REGION:-us-east-1}"
 LBC_CHART_VERSION="${LBC_CHART_VERSION:-3.6.0}"
-MODEL_NAME="${MODEL_NAME:-qwen2.5-0.5b-instruct}"
-MODEL_PREFIX="${MODEL_PREFIX:-qwen2.5-0.5b-instruct/7ae557604adf67be50417f59c2c2f167def9a775}"
+MODEL_NAME="${MODEL_NAME:-qwen2.5-7b-instruct}"
+MODEL_PREFIX="${MODEL_PREFIX:-qwen2.5-7b-instruct/a09a35458c702b33eeacc393d103063234e8bc28}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TOOLS_BUCKET="$(terraform -chdir="$ROOT/terraform/foundation" output -raw tools_bucket)"
 MODELS_BUCKET="$(terraform -chdir="$ROOT/terraform/foundation" output -raw models_bucket)"

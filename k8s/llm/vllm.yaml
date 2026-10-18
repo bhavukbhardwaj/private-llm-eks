@@ -84,10 +84,10 @@ spec:
           resources:
             requests:
               cpu: "2"
-              memory: 6Gi
+              memory: 8Gi
               nvidia.com/gpu: 1
             limits:
-              memory: 12Gi
+              memory: 13Gi
               nvidia.com/gpu: 1
           # Startup probe: allows up to 15 minutes for model load and CUDA graph capture before liveness starts.
           startupProbe:
