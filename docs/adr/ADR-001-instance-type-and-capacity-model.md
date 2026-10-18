@@ -42,8 +42,8 @@
 ## Alternatives considered
 - **`g4dn.xlarge` (T4, 16 GB):** about 35% cheaper, but 7B fp16 does not fit. Dev use only.
 - **`g5g.xlarge` (Arm, T4G, 16 GB):** cheapest, same memory limit, not the brief's A10G. Dev use only.
-- **`g6.xlarge` (L4, 24 GB):** same memory, but not the instance the brief names; no measured price gain.
-- **`g5.2xlarge`:** same GPU, more CPU and RAM for more money; not needed for one replica.
+- **`g6.xlarge` (L4, 24 GB):** same memory, newer GPU, but not the instance the brief names. Its Spot price was not sampled, so no price gain is shown.
+- **`g5.2xlarge`:** same A10G, but 8 vCPU and 32 GiB RAM for about $1.21/hr On-Demand (list, from memory). One replica does not need it, and it needs an 8 vCPU quota (we have 4).
 - **On-Demand:** about 2.3x the cost; kept only as an unused fallback.
 - **`t4g.micro` for system nodes:** 1 GiB and 4 pods, cannot hold the add-ons. `t4g.medium` is the upgrade path.
 
