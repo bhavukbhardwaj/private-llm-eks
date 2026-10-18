@@ -84,13 +84,14 @@ On the bastion: `~/k8s/bootstrap.sh loadtest` (200 requests, concurrency 8). Ove
 ## Load test results
 Model: Qwen2.5-0.5B-Instruct on one A10G (`g5.xlarge`). Run from a pod in the cluster through the internal ALB, 128 max output tokens.
 
-| Metric | Result |
-|---|---|
-| Requests / concurrency | 200 / 8 |
-| Duration | 6.38 s |
-| Throughput | 31.4 requests/s, 1,815 output tokens/s |
-| Latency p50 / p95 | 0.238 s / 0.360 s |
-| Errors | 0 |
+| Metric | Run 1 (brief's minimum) | Run 2 (dashboard screenshot) |
+|---|---|---|
+| Requests / concurrency | 200 / 8 | 4,000 / 8 |
+| Duration | 6.38 s | 122.28 s |
+| Throughput | 31.4 req/s | 32.7 req/s |
+| Output tokens/s | 1,815 | 1,874 |
+| Latency p50 / p95 | 0.238 s / 0.360 s | 0.236 s / 0.356 s |
+| Errors | 0 | 0 |
 
 Details and raw output: [docs/evidence/phase4-vllm-and-loadtest.txt](docs/evidence/phase4-vllm-and-loadtest.txt). These numbers are for the 0.5B development model and must not be read as 7B results.
 

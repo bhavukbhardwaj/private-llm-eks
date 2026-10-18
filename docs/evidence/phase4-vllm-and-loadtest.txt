@@ -38,3 +38,17 @@ $ curl -s http://<internal ALB>/v1/models
 {"object":"list","data":[{"id":"qwen2.5-0.5b-instruct","object":"model","owned_by":"vllm","root":"/models","max_model_len":8192, ...
 $ curl -s http://<internal ALB>/v1/chat/completions -H 'Content-Type: application/json' -d '{"model":"qwen2.5-0.5b-instruct","messages":[{"role":"user","content":"Explain in one sentence why private networking matters."}],"max_tokens":60}'
 {"object":"chat.completion","model":"qwen2.5-0.5b-instruct","choices":[{"message":{"role":"assistant","content":"Private networking is crucial for businesses and organizations to ensure secure, controlled access to their internal networks and resources, thereby enhancing operational efficiency, reducing risks, and maintaining data privacy."},"finish_reason":"stop"}],"usage":{"prompt_tokens":39,"total_tokens":74,"completion_tokens":35}, "system_fingerprint":"vllm-0.31.0-..."}
+
+Long load test for the Grafana screenshot (2026-10-18 13:45 IST, REQUESTS=4000 CONCURRENCY=8, same pod and path):
+{
+  "model": "qwen2.5-0.5b-instruct",
+  "requests": 4000,
+  "concurrency": 8,
+  "duration_s": 122.28,
+  "throughput_req_per_s": 32.712,
+  "output_tokens_per_s": 1874.38,
+  "latency_p50_s": 0.236,
+  "latency_p95_s": 0.356,
+  "latency_mean_s": 0.244,
+  "errors": 0
+}
