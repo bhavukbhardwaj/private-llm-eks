@@ -32,3 +32,9 @@ num_requests_running, num_requests_waiting, request_success_total, kv_cache_usag
 
 Issue found and fixed: first deploy crash-looped with "VLLM_PORT 'tcp://...:80' appears to be a URI". A Service named vllm makes
 Kubernetes inject VLLM_PORT; fixed with enableServiceLinks: false (commit c6e570a).
+
+Manual curl from the bastion (owner, 2026-10-18, from inside the VPC):
+$ curl -s http://<internal ALB>/v1/models
+{"object":"list","data":[{"id":"qwen2.5-0.5b-instruct","object":"model","owned_by":"vllm","root":"/models","max_model_len":8192, ...
+$ curl -s http://<internal ALB>/v1/chat/completions -H 'Content-Type: application/json' -d '{"model":"qwen2.5-0.5b-instruct","messages":[{"role":"user","content":"Explain in one sentence why private networking matters."}],"max_tokens":60}'
+{"object":"chat.completion","model":"qwen2.5-0.5b-instruct","choices":[{"message":{"role":"assistant","content":"Private networking is crucial for businesses and organizations to ensure secure, controlled access to their internal networks and resources, thereby enhancing operational efficiency, reducing risks, and maintaining data privacy."},"finish_reason":"stop"}],"usage":{"prompt_tokens":39,"total_tokens":74,"completion_tokens":35}, "system_fingerprint":"vllm-0.31.0-..."}
