@@ -36,6 +36,9 @@ spec:
         prometheus.io/path: /metrics
     spec:
       serviceAccountName: vllm
+      # A Service named vllm makes Kubernetes inject VLLM_PORT=tcp://<ip>:80 into pods, and vLLM reads VLLM_PORT as its own setting and
+      # refuses to start ("appears to be a URI"). Turning service links off removes those injected variables.
+      enableServiceLinks: false
       nodeSelector:
         role: gpu
       tolerations:

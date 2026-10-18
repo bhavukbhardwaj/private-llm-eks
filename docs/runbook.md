@@ -53,6 +53,7 @@ aws s3 sync s3://private-llm-tools-ded4d08d/k8s ~/k8s && chmod +x ~/k8s/bootstra
 ~/k8s/bootstrap.sh session        # both of the above in one go
 REQUESTS=300 CONCURRENCY=4 ~/k8s/bootstrap.sh loadtest
 ```
+- If vLLM crash-loops with `VLLM_PORT ... appears to be a URI`, the pod must have `enableServiceLinks: false` (a Service named vllm injects `VLLM_PORT`).
 - The load-test result is printed and saved to `~/loadtest-result.json`. Copy it into the README with the model name.
 
 ## 3. Day-to-day on the bastion
