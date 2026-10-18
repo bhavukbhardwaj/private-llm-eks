@@ -18,7 +18,7 @@
   - $0.08 vs $0.10 per GB-month; 3,000 IOPS and 125 MB/s included; no provisioned IOPS, no snapshots.
   - Sizes: system node 20 GB, bastion 10 GB, GPU node 60 GB (40 GB is enough for 0.5B).
   - Total 110 GB (2 x 20 + 10 + 60): about $8.80/month vs $11.00 on gp2.
-  - Replace the EKS default `gp2` StorageClass with a `gp3` default in `k8s/`. Prefer `emptyDir` over PVCs.
+  - No PersistentVolumeClaims in the PoC (`emptyDir` only), so no storage class or EBS CSI driver is installed. If a PVC is ever needed: turn on `enable_ebs_csi` and create a gp3 default StorageClass.
 - **D4 No EC2 detailed monitoring** (`monitoring = false`).
   - The paid 1-minute metrics cost about $2.10 per instance-month. Basic 5-minute metrics are free.
   - No CloudWatch alarms or custom metrics. Metrics come from Prometheus and Grafana.
