@@ -1,62 +1,66 @@
-# ADR-001: Instance types and capacity model (Spot, g5.xlarge for GPU, t4g.small for system)
+# ADR-001: Instance types and capacity model (Spot only)
 
-- **Status:** Accepted (2026-10-18). AWS approved both quota requests; live values verified at 02:25 IST on 2026-10-18: Spot G/VT 4 vCPU and On-Demand G/VT 4 vCPU.
-- **Related:** [ADR-000](ADR-000-skeleton-first-scope.md), [ADR-008](ADR-008-cost-optimisation-choices.md), [ADR-009](ADR-009-model-sizing-strategy.md), [task.md](../../task.md) sections 2.1 and 5
+- **Status:** Accepted (2026-10-18). Quotas verified live at 02:25 IST: Spot G/VT 4 vCPU, On-Demand G/VT 4 vCPU.
+- **Related:** [ADR-000](ADR-000-skeleton-first-scope.md), [ADR-008](ADR-008-cost-and-sizing-rules.md), [ADR-009](ADR-009-model-sizing-strategy.md), [ADR-012](ADR-012-single-working-az.md)
 
 ## Context
+- The brief wants a CPU system node group and one GPU group (`g5.xlarge`, A10G, or equivalent). Spot is allowed.
+- Budget is USD 150 and everything is torn down when idle.
+- Quota limit is 4 vCPU, which is exactly one xlarge GPU instance.
+- Spot prices, EC2 API, 2026-10-18 (USD/hr):
 
-The brief asks for one CPU managed node group for system workloads, one GPU managed node group on `g5.xlarge` (A10G) "or equivalent", Spot allowed, with a hard USD 150 budget. Everything must be torn down when idle. In `us-east-1` the account's G/VT quotas are Spot 0 and On-Demand 2 vCPU, and both increases to 4 vCPU (one xlarge GPU instance) are pending with AWS support (cases 179226397300403 and 179226397400130).
-
-Spot prices sampled from the EC2 API on 2026-10-18, one hour of history, by AZ (USD per hour):
-
-| Instance | GPU | Spot (min to max across AZs) | On-Demand list price* |
+| Instance | GPU | Spot (min to max over AZs) | On-Demand list* |
 |---|---|---|---|
-| g5.xlarge | A10G 24 GB | 0.429 (1c) to 0.533 (1a); 1d 0.431, 1f 0.476, 1b 0.485 | 1.006 |
-| g4dn.xlarge | T4 16 GB | 0.293 (1f) to 0.350 (1a) | 0.526 |
-| g5g.xlarge (Arm) | T4G 16 GB | 0.128 (1a) to 0.141 | about 0.42 |
-| t4g.small | none (2 vCPU, 2 GiB) | 0.0069 (1a) to 0.0089 (1c); 1d 0.0077 | 0.0168 |
-| t4g.micro | none (2 vCPU, 1 GiB) | 0.0032 (1a, 1f) to 0.0042 (1c); 1d 0.0035 | 0.0084 |
+| g5.xlarge | A10G 24 GB | 0.429 (1c) to 0.533 (1a) | 1.006 |
+| g4dn.xlarge | T4 16 GB | 0.293 to 0.350 | 0.526 |
+| g5g.xlarge (Arm) | T4G 16 GB | 0.128 to 0.141 | about 0.42 |
+| t4g.small | none, 2 vCPU, 2 GiB | 0.0069 to 0.0089 | 0.0168 |
+| t4g.micro | none, 2 vCPU, 1 GiB | 0.0032 to 0.0042 | 0.0084 |
 
-\*On-Demand prices are public list prices recalled from memory, to be re-checked against the AWS price list before the final cost table. EKS control plane is a fixed $0.10/hr.
+\*List prices are from memory. Re-check before the final cost table. EKS control plane is $0.10/hr.
 
 ## Decision
+- **GPU node:** `g5.xlarge` on **Spot**, one node, AL2023 NVIDIA AMI, taint `nvidia.com/gpu=true:NoSchedule`, gp3 60 GB.
+- **Spot only (operator decision):** it is a PoC, so we do not pay On-Demand.
+- **Fallback kept in code:** variable `gpu_capacity_type` (default `SPOT`, `ON_DEMAND` possible), commented as unused.
+- **System nodes:** `t4g.small` Spot, **two** nodes (about 11 pods each; add-ons take 4 slots per node).
+- **Bastion:** `t4g.micro` Spot (ADR-006).
+- **Develop on the cheapest GPU or CPU**, switch to `g5.xlarge` for the final evidence run. One variable changes it.
+- **GPU runs only while testing** (toggle `enable_gpu_nodes`).
 
-1. **GPU node: `g5.xlarge` on Spot** (1 x A10G 24 GB, 4 vCPU, 16 GiB RAM), one node, taint `nvidia.com/gpu=true:NoSchedule`, AL2023 NVIDIA AMI, gp3 60 GB root volume. **Spot only (operator decision, 2026-10-18): this is a PoC, so we do not pay On-Demand.** The fallback is kept in code as the variable `gpu_capacity_type` (default `SPOT`, `ON_DEMAND` possible) with a comment saying it is unused. If Spot is interrupted or unavailable, the cost is a restart and a wait, not data loss: nodes are disposable, weights are in S3 and the infrastructure is code.
-2. **System node group: `t4g.small` on Spot, two nodes** (Graviton, 2 vCPU, 2 GiB each, about 11 pods per node, so about 22 pods and 4 GiB in total; aws-node, kube-proxy and two CoreDNS pods use 4 pod slots before any workload). Chosen over `t4g.micro`, which cannot hold the cluster add-ons (1 GiB, 4 pods). Revisit to `t4g.medium` if Prometheus and Grafana do not fit.
-3. **Bastion: `t4g.micro` on Spot** (see ADR-006).
-4. **During development use the cheapest GPU that works** (`g5g.xlarge` or `g4dn.xlarge`, or CPU only, see ADR-009) and switch to `g5.xlarge` only for the final evidence run and recording. Instance type is a single variable.
-5. **Run the GPU node only while testing** (toggle `enable_gpu_nodes`, ADR-008).
+**Cost estimate**
 
-### Cost estimate
-
-| Item | Per hour | Per month if left running (730 h) |
+| Item | Per hour | Per month (730 h) |
 |---|---|---|
-| g5.xlarge Spot (0.43 to 0.53) | 0.43 to 0.53 | 314 to 389 |
-| g5.xlarge On-Demand | 1.006 | 734 |
-| Platform without GPU: EKS 0.10, t4g.small 0.0089 and t4g.micro 0.0042 Spot in 1c (about 0.013 together), 6 interface endpoints x 1 AZ 0.06, 3 SSM endpoints 0.03, internal ALB about 0.03, gp3 volumes about 0.003 | about 0.23 | about 170 |
-| Platform with g5.xlarge Spot | about 0.66 to 0.76 | about 480 to 555 |
+| g5.xlarge Spot | 0.43 to 0.53 | 314 to 389 |
+| g5.xlarge On-Demand (not used) | 1.006 | 734 |
+| Platform without GPU (EKS 0.10, 2 x t4g.small + bastion about 0.02, 6 interface endpoints 0.06, 3 SSM endpoints 0.03, ALB about 0.03) | about 0.24 | about 175 |
+| Platform with g5 Spot | about 0.67 to 0.77 | about 490 to 560 |
 
-Planned use for the assessment (not 730 hours): about 40 hours of platform up and about 10 hours of GPU. That is roughly 40 x 0.23 + 10 x 0.5 = about USD 14 on Spot, against about USD 19 if the GPU hours were On-Demand. Even three times that plan stays well under the USD 150 cap. Interface endpoints also charge about $0.01 per GB processed, which is negligible at load-test volumes. Figures are estimates to be replaced by measured Cost Explorer numbers in the README.
+- Planned use: about 40 h platform + 10 h GPU = roughly **USD 15**. Estimates to be replaced by Cost Explorer numbers.
 
 ## Alternatives considered
-
-- **g4dn.xlarge (T4, 16 GB).** About 30 to 40 percent cheaper on Spot and a fine dev GPU, but 16 GB cannot hold a 7B model in fp16 (about 15 GB of weights plus KV cache), so the final 7B run needs quantisation or a smaller model. Used only for development.
-- **g5g.xlarge (Arm + T4G).** Cheapest GPU (about 0.13 to 0.14 Spot) and consistent with Graviton nodes, but also 16 GB and a different GPU from the brief's A10G. Used only for development if desired.
-- **g6.xlarge (L4 24 GB).** Same memory as A10G, newer, but not the instance the brief names and no price advantage that we have measured.
-- **g5.2xlarge.** Same single A10G with more CPU and RAM at a higher price; not needed for one vLLM replica.
-- **On-Demand for everything.** Predictable and no interruptions, but roughly 2.3 times the GPU cost. Kept only as a fallback.
-- **t4g.micro or t4g.medium for system.** Micro is too small (see Decision 2); medium doubles memory for a few cents more per hour and is the upgrade path.
+- **`g4dn.xlarge` (T4, 16 GB):** about 35% cheaper, but 7B fp16 does not fit. Dev use only.
+- **`g5g.xlarge` (Arm, T4G, 16 GB):** cheapest, same memory limit, not the brief's A10G. Dev use only.
+- **`g6.xlarge` (L4, 24 GB):** same memory, but not the instance the brief names; no measured price gain.
+- **`g5.2xlarge`:** same GPU, more CPU and RAM for more money; not needed for one replica.
+- **On-Demand:** about 2.3x the cost; kept only as an unused fallback.
+- **`t4g.micro` for system nodes:** 1 GiB and 4 pods, cannot hold the add-ons. `t4g.medium` is the upgrade path.
 
 ## Consequences
+**Positive**
+- GPU costs about $0.43 to $0.53/hr and only while testing.
+- Final run uses the instance family the brief names, so a 7B fp16 model fits.
+- Cheap dev GPUs keep debugging cost near zero.
 
-Positive
-- GPU spend is about USD 0.43 to 0.53 per hour and only while testing, so the whole exercise fits comfortably inside USD 150.
-- Final evidence uses the exact instance family the brief names (A10G, 24 GB), so a 7B fp16 model fits.
-- Cheap dev GPUs and CPU-only mode keep debugging cost near zero.
-
-Negative / risks
-- **Quota limit:** both quotas are 4 vCPU, so only one g5.xlarge (4 vCPU) can run at a time, Spot or On-Demand, not both. A second GPU instance would need an 8 vCPU quota.
-- **What the worst case of Spot looks like:** AWS gives a 2-minute warning and reclaims the node; in-flight requests fail; the managed node group launches a replacement if capacity exists; the vLLM pod reschedules and the init container re-downloads the weights (about 30 seconds for a 1 GB model, 2 to 4 minutes for 7B); the emptyDir and any in-memory Prometheus data on that node are lost; if the AZ has no Spot capacity the pod stays Pending until it does (then try another instance type such as g4dn.xlarge, or the other AZ). Nothing permanent is lost and nothing extra is billed.
-- Spot can be interrupted with two minutes notice; a single AZ narrows the capacity pool. Mitigation: record evidence early, On-Demand fallback, retry another AZ.
-- t4g.small is tight: 2 GiB leaves little room, and Arm images must be available (mirrored) for add-ons; the system node is mixed-architecture with the x86 GPU node.
-- Prices are estimates; a Spot spike or a forgotten node can exceed the plan, which is why budgets and teardown discipline exist.
+**Negative**
+- Only one GPU instance at a time (4 vCPU quota, Spot and On-Demand do not add up).
+- Worst case of Spot, in order:
+  - 2-minute warning, node is reclaimed, in-flight requests fail.
+  - Replacement node starts if capacity exists.
+  - Init container re-downloads weights (about 30 s for 1 GB, 2 to 4 min for 7B).
+  - `emptyDir` and in-memory Prometheus data are lost.
+  - No capacity in the AZ means the pod stays Pending; try `g4dn.xlarge` or the other AZ.
+  - Nothing permanent is lost and nothing extra is billed.
+- `t4g.small` is tight on memory; may need `t4g.medium` for Prometheus.
+- Prices are estimates; a forgotten node can overspend (budgets and teardown cover this).

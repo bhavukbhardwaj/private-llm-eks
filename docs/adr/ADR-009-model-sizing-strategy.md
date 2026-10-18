@@ -1,37 +1,33 @@
-# ADR-009: Model sizing strategy (small model for development, 7B for the final run)
+# ADR-009: Model sizing (small model first, 7B for the final run)
 
 - **Status:** Accepted (2026-10-18)
-- **Related:** [ADR-000](ADR-000-skeleton-first-scope.md), ADR-002 (model delivery, to be written), [task.md](../../task.md) section 2.3
+- **Related:** [ADR-001](ADR-001-instance-type-and-capacity-model.md), [ADR-002](ADR-002-model-delivery-into-cluster.md), [task.md](../../task.md) section 2.3
 
 ## Context
-
-The brief asks for a 7B-class open-weight model on one A10G, with weights stored in S3. The graded point is that the platform works end to end (GPU schedules, `nvidia-smi` evidence, S3 load via IRSA, probes, metrics), not model quality. Model choice changes only configuration: `--model`, `--served-model-name`, `--max-model-len`, `--gpu-memory-utilization`, and possibly dtype or quantisation flags; the Terraform, manifests, dashboards and load test are identical. A 7B fp16 model is about 15 GB; storage in S3 is about $0.35/month, so size is a time cost (upload, init-container sync, load into GPU), not a money cost.
+- The brief asks for a 7B-class model on one A10G, weights in S3.
+- What is graded is the platform end to end (GPU schedules, `nvidia-smi`, S3 via IRSA, probes, metrics), not model quality.
+- Changing the model only changes `--model`, `--served-model-name`, `--max-model-len`, `--gpu-memory-utilization` and maybe dtype. Terraform, manifests, dashboard and load test stay the same.
+- 7B fp16 is about 15 GB: S3 storage is about $0.35/month. Size costs time, not money.
+- GPU hourly price does not depend on model size (ADR-001).
 
 ## Decision
-
-1. Build and debug with a **small instruct model** (for example Qwen2.5-0.5B or 1.5B-Instruct, 1 to 3 GB) on the cheapest available GPU Spot instance. Fast sync, fast start, low cost.
-2. For the final demo and recorded evidence, switch to a **7B-class model** (for example Qwen2.5-7B-Instruct, pinned revision) on g5.xlarge, if quota, time and budget allow. Keep the same manifests; change only the model arguments and the bucket prefix.
-3. A CPU-only model server is **not** used for the final system. The assessment's top criterion requires a real GPU workload (`nvidia-smi`). During the skeleton phase, a placeholder service on Graviton stands in (ADR-000).
-4. The exact model, revision hash, and chosen vLLM arguments with reasons are recorded in ADR-002 and the README.
-
-## Notes added on acceptance
-- The GPU stage starts only when AWS approves the G/VT quota increases (ADR-001). Until then the CPU stage proceeds.
-- CPU stage uses the vLLM CPU backend (supports Arm) with a Qwen2.5-0.5B-Instruct class model on the Graviton node, or a stub if the CPU image is not available for arm64. Availability of a ready-made vLLM CPU image for arm64 has **not** been verified; building it from source is the fallback. The GPU pieces (taint, device plugin, `nvidia-smi`, DCGM) cannot be proven on CPU and are required by the brief's first criterion.
-- The GPU hourly price does not depend on the model size (ADR-001); a smaller model only reduces upload, sync and start time.
+- **Dev:** a small instruct model, Qwen2.5-0.5B-Instruct (about 1 GB), uploaded to S3 at a pinned revision.
+- **Final demo:** a 7B-class model (Qwen2.5-7B-Instruct, pinned revision) on `g5.xlarge`, if time and budget allow. Same manifests; change only the arguments and S3 prefix.
+- **Final system is GPU, not CPU-only.** The top criterion needs a real GPU pod.
+- **CPU stage (optional):** vLLM CPU backend on Graviton, or a stub. A ready-made arm64 vLLM CPU image is **not verified**; building it is the fallback.
+- Exact model, revision and vLLM arguments with reasons go in the README.
 
 ## Alternatives considered
-
-- **7B only from the start.** Closest to the brief, but slows every iteration (15 GB upload, longer pod start) and costs more GPU hours while debugging.
-- **Small model only.** Cheapest, but deviates from the stated "7B class" and from the brief's sizing discussion (`--max-model-len`, memory utilisation on 24 GB).
-- **CPU inference (vLLM CPU backend or llama.cpp) to avoid GPU quota.** Would unblock early work but does not satisfy the GPU requirement and adds a separate image to build and mirror.
+- **7B from the start:** matches the brief, but slow iteration (15 GB upload, long pod start) and more GPU hours spent debugging.
+- **Small model only:** cheapest, but not "7B class" and no memory-tuning story on 24 GB.
+- **CPU inference to avoid GPU quota:** quota is now approved; it would not satisfy the GPU requirement and adds an image to build.
 
 ## Consequences
+**Positive**
+- Fast, cheap iteration; the final run still matches the brief.
+- Swapping the model is a config change, so switching late is low risk.
 
-Positive
-- Faster, cheaper iteration; the final run still matches the brief.
-- Model swap is a config change, so the risk of switching at the end is low.
-
-Negative / risks
-- If the final 7B run is skipped for time or quota reasons, the README must say the system was validated with a smaller model.
-- Performance numbers from the small model must not be reported as 7B results; load-test results must name the model used.
-- Memory behaviour (KV cache sizing, OOM risk) differs on 7B; the final run needs its own `--max-model-len` and `--gpu-memory-utilization` check.
+**Negative**
+- If the 7B run is skipped, the README must say the system was validated on a smaller model.
+- Small-model performance numbers must not be reported as 7B results; each load test names its model.
+- 7B needs its own `--max-model-len` and memory check (KV cache, OOM risk).

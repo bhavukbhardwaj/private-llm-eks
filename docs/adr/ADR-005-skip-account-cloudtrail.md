@@ -1,29 +1,24 @@
-# ADR-005: Do not create an account-wide CloudTrail trail in the sandbox
+# ADR-005: No account-wide CloudTrail trail in the sandbox
 
 - **Status:** Accepted (2026-10-18)
-- **Related:** [ADR-004](ADR-004-aws-authentication-sso.md), [task.md](../../task.md) section 2.2 (EKS control-plane logging)
+- **Related:** [ADR-004](ADR-004-aws-authentication-sso.md), [ADR-011](ADR-011-logging-and-monitoring-defaults.md)
 
 ## Context
-
-The Phase 0 hardening list included an account-wide CloudTrail trail. The sandbox is a personal account with a single human user (SSO) and no IAM users or shared access. The brief requires EKS control-plane logging (`api`, `audit`, `authenticator`), which is separate from CloudTrail and is still in scope.
+- Personal account, one human user (SSO), no IAM users, no shared access.
+- Hardening checks done 2026-10-18: root MFA on, no root keys, 0 IAM users, S3 Block Public Access on (all four settings).
+- CloudTrail Event History (90 days of management events) is on by default and free.
 
 ## Decision
-
-Do not create a CloudTrail trail for this exercise. Rely on CloudTrail Event History (management events, 90 days, free, on by default) for any after-the-fact investigation. EKS control-plane logging is supported by a toggle that is off by default for the PoC (see ADR-008).
+- Do not create a CloudTrail trail for this exercise.
+- Use Event History for any after-the-fact check.
 
 ## Alternatives considered
-
-- **All-region trail to an S3 bucket.** Better retention and tamper evidence, and the first management-event trail is free, but it adds a bucket (KMS, policy, lifecycle) and cleanup effort for one user. Rejected for the sandbox.
+- **All-region trail to an S3 bucket:** better retention and tamper evidence, and the first trail is free, but it adds a bucket, policy, lifecycle and cleanup for one user.
 
 ## Consequences
+**Positive**
+- Less setup: no bucket, no policy, no cleanup. Saves about 15 minutes and one S3 bucket.
 
-Positive
-- Less setup and nothing extra to tear down.
-
-Negative / risks
-- No retention beyond 90 days, no data-event or S3-object logging, and no integrity validation.
-- The README's law-firm answer must state that a real deployment needs an organisation trail (multi-region, KMS-encrypted, log-file validation, immutable bucket in a separate account).
-
-## Hardening status at decision time
-- Root MFA: enabled. Root access keys: none. IAM users: 0 (checked 2026-10-18).
-- S3 account-level Block Public Access: all four settings enabled 2026-10-18.
+**Negative**
+- No retention beyond 90 days, no data events, no log-file integrity validation.
+- The law-firm answer must say production needs an organisation trail: multi-region, KMS-encrypted, log validation, immutable bucket in a separate account.
