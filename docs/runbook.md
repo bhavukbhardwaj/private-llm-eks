@@ -34,6 +34,15 @@ k9s
 - **stern:** tail logs of many pods: `stern -n llm vllm`.
 - **jq, yq and others:** `sudo dnf install -y jq` works without internet (Amazon Linux repos are served through the S3 endpoint).
 
+## 2c. GPU proof (after the GPU node is on, see section 5)
+Stage on the laptop (`scripts/stage-k8s.sh`), then on the bastion:
+```
+aws s3 sync s3://private-llm-tools-ded4d08d/k8s ~/k8s
+~/k8s/bootstrap.sh gpu
+```
+- Installs the NVIDIA device plugin, waits for `nvidia.com/gpu: 1` on the GPU node, runs a pod that prints `nvidia-smi`, then shows the pod on the GPU node.
+- Save the output in `docs/evidence/`.
+
 ## 3. Day-to-day on the bastion
 ```
 kubectl get nodes -o wide

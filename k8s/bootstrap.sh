@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Runs ON THE BASTION. Installs the AWS Load Balancer Controller and the placeholder app, then curls the internal ALB.
-# Usage: ./bootstrap.sh [kubeconfig|lb|placeholder|all]   (default: all)
+# Usage: ./bootstrap.sh [kubeconfig|lb|placeholder|gpu|all]   (default: all; `gpu` is not part of `all`)
 # Needs config.env (written by scripts/stage-k8s.sh) in the same folder.
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -68,10 +68,24 @@ placeholder() {
   done
 }
 
+# GPU proof: device plugin DaemonSet, then a pod that runs nvidia-smi on the GPU node. Run only after the GPU node is up.
+gpu() {
+  render gpu/nvidia-device-plugin.yaml | kubectl apply -f -
+  kubectl -n kube-system rollout status ds/nvidia-device-plugin-daemonset --timeout=5m
+  echo "GPU allocatable on nodes:"
+  kubectl get nodes -l role=gpu -o custom-columns=NAME:.metadata.name,GPU:.status.allocatable.nvidia\\.com/gpu
+  kubectl delete pod nvidia-smi --ignore-not-found
+  render gpu/nvidia-smi-pod.yaml | kubectl apply -f -
+  kubectl wait --for=jsonpath='{.status.phase}'=Succeeded pod/nvidia-smi --timeout=10m || true
+  kubectl logs nvidia-smi
+  kubectl get pod nvidia-smi -o wide
+}
+
 case "$STEP" in
   kubeconfig) kubeconfig ;;
   lb) lb ;;
   placeholder) placeholder ;;
+  gpu) gpu ;;
   all) kubeconfig; lb; placeholder ;;
-  *) echo "usage: $0 [kubeconfig|lb|placeholder|all]"; exit 1 ;;
+  *) echo "usage: $0 [kubeconfig|lb|placeholder|gpu|all]"; exit 1 ;;
 esac

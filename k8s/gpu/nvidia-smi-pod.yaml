@@ -1,0 +1,27 @@
+# One-off pod that requests 1 GPU and runs nvidia-smi: the top-graded evidence that a GPU workload schedules and runs.
+# It tolerates the GPU taint, requests nvidia.com/gpu, and lands only on the GPU node. ${ECR} is filled in by k8s/bootstrap.sh.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nvidia-smi
+  namespace: default
+spec:
+  restartPolicy: Never
+  nodeSelector:
+    role: gpu
+  tolerations:
+    - key: nvidia.com/gpu
+      operator: Exists
+      effect: NoSchedule
+  containers:
+    - name: nvidia-smi
+      image: ${ECR}/busybox:1.38.0
+      command: ["sh", "-c", "nvidia-smi && sleep 5"]
+      env:
+        - name: NVIDIA_VISIBLE_DEVICES
+          value: all
+        - name: NVIDIA_DRIVER_CAPABILITIES
+          value: utility
+      resources:
+        limits:
+          nvidia.com/gpu: 1
