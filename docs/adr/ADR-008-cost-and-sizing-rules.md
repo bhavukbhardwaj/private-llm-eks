@@ -16,7 +16,9 @@
 - **gp3 only, never gp2:** $0.08 vs $0.10 per GB-month, includes 3,000 IOPS and 125 MB/s. No provisioned IOPS, no snapshots.
 - **Smallest working sizes:** system node 20 GB, bastion 10 GB, GPU node 60 GB (7B run; 40 GB is enough for 0.5B). About 110 GB in total (2 x 20 + 10 + 60), about $8.80/month, against $11.00 on gp2.
 - **EKS default `gp2` StorageClass is replaced by a `gp3` default** in `k8s/`. PoC workloads prefer `emptyDir` over PVCs.
-- **No EC2 detailed monitoring** (`monitoring = false`): the 1-minute metrics cost about $2.10 per instance-month. Basic 5-minute metrics are free. No CloudWatch alarms or custom metrics. Metrics come from Prometheus and Grafana.
+- **No EC2 detailed monitoring** (`monitoring = false`): the paid 1-minute metrics cost about $2.10 per instance-month.
+  - Basic 5-minute metrics are free.
+  - No CloudWatch alarms or custom metrics. Metrics come from Prometheus and Grafana.
 - **Do not assume free-tier eligibility.** Check Billing before relying on it.
 
 **Cost toggles** (variables in code, off by default for the PoC; never turned on without asking)
