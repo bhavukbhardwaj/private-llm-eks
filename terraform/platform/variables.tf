@@ -28,7 +28,7 @@ variable "state_bucket" {
 }
 
 variable "kms_key_arn" {
-  description = "ARN of an existing customer-managed KMS key used to encrypt node EBS volumes (brief 2.2). Pass it from an untracked tfvars file; it contains the account ID. Null keeps the AWS-managed aws/ebs key (ADR-008)."
+  description = "ARN of an existing customer-managed KMS key used to encrypt node EBS volumes (brief 2.2). Pass it from an untracked tfvars file; it contains the account ID. Null keeps the AWS-managed aws/ebs key (ADR-003)."
   type        = string
   default     = null
 }
@@ -39,7 +39,7 @@ variable "kubernetes_version" {
   default     = "1.35"
 }
 
-# ---- Cost toggles (ADR-008): everything that bills by the hour is off until needed ----
+# ---- Cost toggles (ADR-003): everything that bills by the hour is off until needed ----
 
 variable "enable_interface_endpoints" {
   description = "Create the interface endpoints the private cluster needs (about $0.01/hr per endpoint). The cluster cannot pull images or join nodes without them."
@@ -48,19 +48,19 @@ variable "enable_interface_endpoints" {
 }
 
 variable "interface_endpoints" {
-  description = "Interface endpoint services for the cluster (no logs endpoint: nothing sends to CloudWatch, ADR-008)."
+  description = "Interface endpoint services for the cluster (no logs endpoint: nothing sends to CloudWatch, ADR-003)."
   type        = list(string)
   default     = ["ecr.api", "ecr.dkr", "sts", "kms", "ec2", "elasticloadbalancing"]
 }
 
 variable "enable_ssm_endpoints" {
-  description = "Create the ssm, ssmmessages and ec2messages endpoints so Session Manager reaches the bastion (ADR-006)."
+  description = "Create the ssm, ssmmessages and ec2messages endpoints so Session Manager reaches the bastion (ADR-004)."
   type        = bool
   default     = false
 }
 
 variable "enable_bastion" {
-  description = "Create the Spot t4g.micro bastion (ADR-006)."
+  description = "Create the Spot t4g.micro bastion (ADR-004)."
   type        = bool
   default     = false
 }
@@ -78,7 +78,7 @@ variable "enable_ebs_csi" {
 }
 
 variable "eks_control_plane_log_types" {
-  description = "EKS control-plane log types sent to CloudWatch. Empty (default) means no logging and no CloudWatch cost (ADR-008). Production: [\"api\", \"audit\", \"authenticator\"]."
+  description = "EKS control-plane log types sent to CloudWatch. Empty (default) means no logging and no CloudWatch cost (ADR-003). Production: [\"api\", \"audit\", \"authenticator\"]."
   type        = list(string)
   default     = []
 }
@@ -89,7 +89,7 @@ variable "eks_log_retention_days" {
   default     = 3
 }
 
-# ---- Sizing (ADR-001, ADR-008) ----
+# ---- Sizing (ADR-001, ADR-003) ----
 
 variable "system_instance_types" {
   description = "Instance types of the system node group."

@@ -1,7 +1,7 @@
 # ADR-001: Instance types and capacity model (Spot only)
 
 - **Status:** Accepted (2026-10-18). Quotas verified live at 02:25 IST: Spot G/VT 4 vCPU, On-Demand G/VT 4 vCPU.
-- **Related:** [ADR-000](ADR-000-skeleton-first-scope.md), [ADR-008](ADR-008-cost-and-sizing-rules.md), [ADR-009](ADR-009-model-sizing-strategy.md), [ADR-012](ADR-012-single-working-az.md)
+- **Related:** [ADR-003](ADR-003-cost-and-sizing.md) (cost, AZ), [ADR-004](ADR-004-security.md) (bastion), [ADR-006](ADR-006-scope-and-model-strategy.md) (model size)
 
 ## Context
 - The brief wants a CPU system node group and one GPU group (`g5.xlarge`, A10G, or equivalent). Spot is allowed.
@@ -24,9 +24,9 @@
 - **Spot only (operator decision):** it is a PoC, so we do not pay On-Demand.
 - **Fallback kept in code:** variable `gpu_capacity_type` (default `SPOT`, `ON_DEMAND` possible), commented as unused.
 - **System nodes:** `t4g.small` Spot, **two** nodes (about 11 pods each; add-ons take 4 slots per node).
-- **Bastion:** `t4g.micro` Spot (ADR-006).
+- **Bastion:** `t4g.micro` Spot (ADR-004).
 - **Develop on the cheapest GPU or CPU**, switch to `g5.xlarge` for the final evidence run. One variable changes it.
-- **GPU runs only while testing** (toggle `enable_gpu_nodes`).
+- **GPU runs only while testing** (toggle `enable_gpu_nodes`, ADR-003).
 
 **Cost estimate**
 

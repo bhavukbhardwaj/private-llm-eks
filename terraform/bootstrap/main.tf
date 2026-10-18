@@ -1,7 +1,7 @@
-# Remote state bucket for the foundation and platform stacks (ADR-007).
+# Remote state bucket for the foundation and platform stacks (ADR-005).
 # State layout: s3://<bucket>/<project>/<environment>/<stack>/terraform.tfstate
 # Locking uses the S3 native lockfile (use_lockfile = true), so no DynamoDB table.
-# Encryption: SSE-S3 (AWS-managed, no cost), see ADR-008.
+# Encryption: SSE-S3 (AWS-managed, no cost), see ADR-004.
 
 # Random suffix so the globally unique bucket name needs no account ID.
 resource "random_id" "suffix" {

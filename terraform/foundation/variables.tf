@@ -41,7 +41,7 @@ variable "private_subnet_cidrs" {
 }
 
 variable "primary_az" {
-  description = "The single working AZ where nodes, bastion and endpoints are placed (ADR-008). Must be one of azs."
+  description = "The single working AZ where nodes, bastion and endpoints are placed (ADR-003). Must be one of azs."
   type        = string
   default     = "us-east-1c"
 

@@ -1,4 +1,4 @@
-# Copy to terraform.tfvars (gitignored). Everything that bills by the hour is off by default (ADR-008).
+# Copy to terraform.tfvars (gitignored). Everything that bills by the hour is off by default (ADR-003).
 state_bucket = "private-llm-tfstate-xxxxxxxx" # from the bootstrap output; do not commit the real value
 
 # Turn these on for a working session, then back off (or destroy the stack):

@@ -33,7 +33,7 @@ locals {
 data "aws_caller_identity" "current" {}
 
 # Lets the Auto Scaling service-linked role use the existing customer-managed key, so node groups can launch encrypted volumes.
-# The key is only referenced here; Terraform never creates, changes or destroys it (ADR-008). Destroying this stack revokes the grant.
+# The key is only referenced here; Terraform never creates, changes or destroys it (ADR-003). Destroying this stack revokes the grant.
 resource "aws_kms_grant" "autoscaling" {
   count = var.kms_key_arn == null ? 0 : 1
 
@@ -55,7 +55,7 @@ module "endpoints" {
   services   = local.endpoint_services
 }
 
-# Spot bastion reachable only through Session Manager; admin entry point for kubectl and helm (ADR-006).
+# Spot bastion reachable only through Session Manager; admin entry point for kubectl and helm (ADR-004).
 module "bastion" {
   source = "../modules/bastion"
   count  = var.enable_bastion ? 1 : 0

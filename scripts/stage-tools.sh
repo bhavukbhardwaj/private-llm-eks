@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Downloads kubectl and helm (arm64, for the bastion) and uploads them to the tools bucket, because the bastion has no internet (ADR-006).
+# Downloads kubectl and helm (arm64, for the bastion) and uploads them to the tools bucket, because the bastion has no internet (ADR-004).
 # Usage: scripts/stage-tools.sh          env: AWS_REGION (default us-east-1), K8S_MINOR (default 1.35), HELM_VERSION (default v4.3.0), TOOLS_BUCKET (default: foundation terraform output)
 set -euo pipefail
 

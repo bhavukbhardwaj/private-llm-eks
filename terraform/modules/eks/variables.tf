@@ -20,7 +20,7 @@ variable "cluster_subnet_ids" {
 }
 
 variable "node_subnet_ids" {
-  description = "Subnets for the node groups; one subnet keeps all nodes in one AZ (ADR-008)."
+  description = "Subnets for the node groups; one subnet keeps all nodes in one AZ (ADR-003)."
   type        = list(string)
 }
 
@@ -31,7 +31,7 @@ variable "tags" {
 }
 
 variable "enabled_log_types" {
-  description = "EKS control-plane log types sent to CloudWatch. Empty (default) means no logging and no CloudWatch cost (ADR-008)."
+  description = "EKS control-plane log types sent to CloudWatch. Empty (default) means no logging and no CloudWatch cost (ADR-003)."
   type        = list(string)
   default     = []
 }
@@ -73,13 +73,13 @@ variable "system_max_size" {
 }
 
 variable "system_volume_gb" {
-  description = "Root volume size of system nodes in GB (gp3, ADR-008)."
+  description = "Root volume size of system nodes in GB (gp3, ADR-003)."
   type        = number
   default     = 20
 }
 
 variable "enable_gpu_nodes" {
-  description = "Create the GPU node group (cost toggle, ADR-008)."
+  description = "Create the GPU node group (cost toggle, ADR-003)."
   type        = bool
   default     = false
 }
@@ -91,7 +91,7 @@ variable "gpu_instance_type" {
 }
 
 variable "kms_key_arn" {
-  description = "Customer-managed KMS key for the node EBS volumes (brief 2.2). Null keeps the AWS-managed aws/ebs key. The key is referenced, never created here (ADR-008)."
+  description = "Customer-managed KMS key for the node EBS volumes (brief 2.2). Null keeps the AWS-managed aws/ebs key. The key is referenced, never created here (ADR-003)."
   type        = string
   default     = null
 }

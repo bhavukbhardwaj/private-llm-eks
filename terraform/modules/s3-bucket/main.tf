@@ -1,4 +1,4 @@
-# Private bucket; encrypted with free SSE-S3 (ADR-008) and never public.
+# Private bucket; encrypted with free SSE-S3 (ADR-004) and never public.
 resource "aws_s3_bucket" "this" {
   bucket        = var.bucket_name
   force_destroy = var.force_destroy

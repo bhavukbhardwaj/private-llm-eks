@@ -14,7 +14,7 @@ variable "vpc_cidr" {
 }
 
 variable "subnet_ids" {
-  description = "Subnets for the endpoint network interfaces (one subnet = one AZ = lowest cost, ADR-008)."
+  description = "Subnets for the endpoint network interfaces (one subnet = one AZ = lowest cost, ADR-003)."
   type        = list(string)
 }
 

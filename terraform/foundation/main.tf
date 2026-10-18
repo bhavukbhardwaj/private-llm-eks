@@ -22,7 +22,7 @@ module "models_bucket" {
   force_destroy = true
 }
 
-# Bucket holding CLI tools (kubectl, helm) and manifests for the offline bastion (ADR-006).
+# Bucket holding CLI tools (kubectl, helm) and manifests for the offline bastion (ADR-004).
 module "tools_bucket" {
   source = "../modules/s3-bucket"
 

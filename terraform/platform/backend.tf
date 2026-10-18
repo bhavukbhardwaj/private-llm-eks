@@ -1,4 +1,4 @@
-# Remote state in S3 with native locking (ADR-007). The bucket name is passed at init time:
+# Remote state in S3 with native locking (ADR-005). The bucket name is passed at init time:
 #   terraform init -backend-config="bucket=<state bucket from the bootstrap output>"
 terraform {
   backend "s3" {

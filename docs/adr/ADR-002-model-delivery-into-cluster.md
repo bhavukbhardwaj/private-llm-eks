@@ -1,7 +1,7 @@
 # ADR-002: Model delivery (init container syncing from S3)
 
 - **Status:** Accepted (2026-10-18). Timings are estimates until measured.
-- **Related:** [ADR-003](ADR-003-image-supply-without-nat.md), [ADR-009](ADR-009-model-sizing-strategy.md)
+- **Related:** [ADR-005](ADR-005-delivery-and-terraform.md), [ADR-006](ADR-006-scope-and-model-strategy.md)
 
 ## Context
 - Weights must come from our S3 bucket, not the internet at pod start.

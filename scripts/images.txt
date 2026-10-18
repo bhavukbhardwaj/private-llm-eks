@@ -1,4 +1,4 @@
-# Images mirrored into private ECR with `crane copy` (ADR-003). Never docker pull / docker push for these.
+# Images mirrored into private ECR with `crane copy` (ADR-005). Never docker pull / docker push for these.
 # Columns: ecr_repo  tag  platform  source
 #   platform: linux/arm64 (system nodes), linux/amd64 (GPU node), or all (runs on both kinds of node)
 # Tags verified to exist with the needed architectures on 2026-10-18. ECR tags are immutable: to change a version, add a new tag.
