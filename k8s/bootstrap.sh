@@ -11,8 +11,33 @@ STEP="${1:-all}"
 
 render() { sed "s|\${ECR}|${ECR}|g" "$1"; }
 
+# Writes ~/.kube/config WITHOUT calling the EKS API (there is no eks VPC endpoint, so `aws eks update-kubeconfig` would hang).
+# Token generation (`aws eks get-token`) only signs an STS request, which works through the sts endpoint.
 kubeconfig() {
-  aws eks update-kubeconfig --name "$CLUSTER_NAME" --region "$AWS_REGION"
+  mkdir -p "$HOME/.kube"
+  cat > "$HOME/.kube/config" <<KC
+apiVersion: v1
+kind: Config
+clusters:
+  - name: ${CLUSTER_NAME}
+    cluster:
+      server: ${EKS_ENDPOINT}
+      certificate-authority-data: ${EKS_CA}
+contexts:
+  - name: ${CLUSTER_NAME}
+    context:
+      cluster: ${CLUSTER_NAME}
+      user: ${CLUSTER_NAME}
+current-context: ${CLUSTER_NAME}
+users:
+  - name: ${CLUSTER_NAME}
+    user:
+      exec:
+        apiVersion: client.authentication.k8s.io/v1beta1
+        command: aws
+        args: [eks, get-token, --cluster-name, ${CLUSTER_NAME}, --region, ${AWS_REGION}, --output, json]
+KC
+  chmod 600 "$HOME/.kube/config"
   kubectl get nodes -o wide
 }
 

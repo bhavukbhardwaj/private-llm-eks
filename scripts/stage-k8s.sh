@@ -27,6 +27,8 @@ VPC_ID=$(tf vpc_id)
 ECR=${ACCOUNT}.dkr.ecr.${REGION}.amazonaws.com
 LB_ROLE_ARN=$(tf lb_controller_role_arn)
 VLLM_ROLE_ARN=$(tf vllm_role_arn)
+EKS_ENDPOINT=$(aws eks describe-cluster --name "$(tf cluster_name)" --region "$REGION" --query cluster.endpoint --output text)
+EKS_CA=$(aws eks describe-cluster --name "$(tf cluster_name)" --region "$REGION" --query cluster.certificateAuthority.data --output text)
 MODELS_BUCKET=${MODELS_BUCKET}
 CFG
 chmod +x "$WORK/bootstrap.sh"

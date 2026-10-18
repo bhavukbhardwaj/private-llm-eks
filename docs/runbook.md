@@ -17,6 +17,7 @@ aws s3 sync s3://private-llm-tools-ded4d08d/k8s ~/k8s
 chmod +x ~/k8s/bootstrap.sh
 ~/k8s/bootstrap.sh
 ```
+- Do not use `aws eks update-kubeconfig` or `kube-setup` on the bastion: they call the EKS API, there is no `eks` VPC endpoint, and the command hangs. `bootstrap.sh kubeconfig` writes the kubeconfig from `config.env` instead.
 - `bootstrap.sh` does: kubeconfig, `kubectl get nodes`, Load Balancer Controller (Helm), placeholder app, `curl` of the internal ALB.
 - One step only: `~/k8s/bootstrap.sh kubeconfig` (or `lb`, or `placeholder`).
 - Bucket name now: `private-llm-tools-ded4d08d`. `scripts/stage-k8s.sh` prints the exact command for the current bucket.
