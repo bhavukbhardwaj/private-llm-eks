@@ -1,132 +1,84 @@
 # Private LLM inference on EKS
 
-A small, reproducible deployment that serves an open-weight model (Qwen2.5, via vLLM) from inside a private VPC on Amazon EKS. Everything is defined in code, nothing is exposed to the internet, and it is observable with Prometheus, the NVIDIA DCGM exporter and Grafana.
+Serves **Qwen2.5-7B-Instruct** with vLLM on one NVIDIA A10G, inside a private VPC on Amazon EKS. Everything is Terraform and Kubernetes manifests. The model is reachable only from inside the VPC, and it is monitored with Prometheus, the NVIDIA DCGM exporter and Grafana.
 
-- Brief: [task.md](task.md). Plan and progress: [deliverable.md](deliverable.md). Decisions: [docs/adr/](docs/adr/). Commands: [docs/runbook.md](docs/runbook.md).
-- Written answer for the law-firm question: [docs/law-firm-answer.md](docs/law-firm-answer.md).
-- Evidence (`nvidia-smi`, `kubectl` output, results): [docs/evidence/](docs/evidence/).
-
-## What it does
-- Serves `POST /v1/chat/completions` (OpenAI-compatible) from vLLM on one NVIDIA A10G (`g5.xlarge`).
-- The endpoint is an **internal ALB**: reachable only from inside the VPC.
-- No NAT and no internet gateway. Images come from private ECR and the model weights from S3, through VPC endpoints.
-- Pods reach AWS only through IRSA (no long-lived credentials). Humans use SSO. The Kubernetes API is private, reached through an SSM bastion.
+- API: OpenAI-compatible `POST /v1/chat/completions` behind an **internal ALB**.
+- No internet gateway, no NAT gateway, no public ingress. Images come from private ECR and the weights from S3, through VPC endpoints.
+- Pods reach AWS only through IRSA. People use SSO. The EKS API is private, reached through an SSM bastion.
 
 ## Architecture
-Two diagrams (SVG for editing, PNG for slides). First, every AWS component and where it sits:
-
 ![AWS architecture](docs/architecture/aws-architecture.png)
-
-Second, the four paths: how it is deployed, how an operator reaches it, how a request flows, and how metrics reach Grafana:
 
 ![Deploy, operate, request and observe paths](docs/architecture/request-and-ops-flow.png)
 
-Sources: [aws-architecture.svg](docs/architecture/aws-architecture.svg), [request-and-ops-flow.svg](docs/architecture/request-and-ops-flow.svg).
-
-## Repository layout
+## Repository
 ```
-terraform/bootstrap/    state bucket (S3 native locking)
-terraform/foundation/   VPC, S3 gateway endpoint, ECR, buckets            (persistent)
-terraform/platform/     endpoints, EKS, nodes, bastion, IRSA              (disposable)
-terraform/modules/      vpc, vpc-endpoints, s3-bucket, ecr, eks, irsa, bastion
-k8s/                    manifests, Helm values, bootstrap.sh (runs on the bastion)
-dashboards/             Grafana dashboard JSON
-scripts/                image mirroring, tool staging, helpers
-loadtest/               load test client (Dockerfile + Python)
-docs/                   ADRs, security, runbook, evidence, law-firm answer
+terraform/   bootstrap (state), foundation (VPC, ECR, S3), platform (EKS, nodes, bastion), modules
+k8s/         manifests and bootstrap.sh (runs on the bastion)
+dashboards/  Grafana dashboard JSON
+scripts/     image mirroring, tool staging, model upload
+loadtest/    load test client
+docs/        adr (decisions), architecture, evidence, runbook, security, law-firm answer
 ```
-
-## Prerequisites (done by hand, once)
-- An AWS account with IAM Identity Center (SSO) and MFA. No access keys.
-- GPU quotas in us-east-1: *Running On-Demand G and VT instances* and *All G and VT Spot Instance Requests*, 4 vCPU each.
-- Tools: Terraform >= 1.11, AWS CLI v2, kubectl, helm, crane, docker (buildx).
-- An existing customer-managed KMS key for node volumes (this project reuses the Identity Center key). Its ARN goes in the untracked `terraform/platform/terraform.tfvars` as `kms_key_arn`.
 
 ## Deploy from scratch
+Needs an AWS account with SSO, GPU quota (4 vCPU) in us-east-1, Terraform 1.11 or newer, AWS CLI, kubectl, helm, crane and docker. Full commands: [docs/runbook.md](docs/runbook.md).
+
+| Step | Command |
+|---|---|
+| 1. State bucket and foundation | `terraform apply` in `terraform/bootstrap`, then `terraform/foundation` |
+| 2. Images and tools | `scripts/mirror-images.sh`, `scripts/stage-tools.sh` (big images from AWS CloudShell) |
+| 3. Model weights | `scripts/upload-model-stream.sh <models-bucket>` (from CloudShell) |
+| 4. Platform (hourly billing starts) | `terraform apply` in `terraform/platform` (set `enable_gpu_ondemand_nodes = true` for the GPU) |
+| 5. Cluster files | `scripts/stage-k8s.sh`, then on the bastion `~/k8s/bootstrap.sh` |
+| 6. GPU, monitoring, model | on the bastion: `bootstrap.sh gpu`, `bootstrap.sh monitoring`, `bootstrap.sh llm` |
+
+**Destroy:** `terraform destroy` in `terraform/platform` stops the hourly bill. `foundation` (S3, ECR) costs cents per month.
+
+## Try it
+On the bastion (the endpoint is internal, so it works only from inside the VPC):
 ```
-# 1. State bucket, then foundation (VPC, ECR, buckets)
-cd terraform/bootstrap  && terraform init && terraform apply
-cd ../foundation        && terraform init -backend-config="bucket=<state bucket>" && terraform apply
-
-# 2. Copy images into ECR and stage tools (laptop; use AWS CloudShell for the 9 GB vLLM image)
-scripts/mirror-images.sh
-scripts/stage-tools.sh
-
-# 3. Model weights to S3 (pinned Hugging Face revision)
-scripts/upload-model.sh
-
-# 4. Platform: EKS, nodes, endpoints, bastion (hourly billing starts here)
-cd ../platform && terraform init -backend-config="bucket=<state bucket>" && terraform apply
-
-# 5. Stage cluster files, then on the bastion (Session Manager):
-scripts/stage-k8s.sh
-aws s3 sync s3://<tools bucket>/k8s ~/k8s && chmod +x ~/k8s/bootstrap.sh
-~/k8s/bootstrap.sh            # kubeconfig, Load Balancer Controller, placeholder
-~/k8s/bootstrap.sh gpu        # NVIDIA device plugin, nvidia-smi pod
-~/k8s/bootstrap.sh monitoring # Prometheus, Grafana, DCGM exporter
-~/k8s/bootstrap.sh llm        # vLLM behind the internal ALB, chat curl
+~/k8s/ask.sh "Explain why private networking matters"      # prints the answer
+~/k8s/bootstrap.sh loadtest                                  # 200 requests, concurrency 8, from a pod
+REQUESTS=600 CONCURRENCY=4 ~/k8s/bootstrap.sh loadtest
 ```
-Turn the GPU node on with `enable_gpu_ondemand_nodes = true` (or the Spot variant `enable_gpu_nodes`) and apply. Destroy with `terraform destroy` in `terraform/platform`.
 
-## Ask the model a question
-On the bastion: `~/k8s/ask.sh "Explain why private networking matters"` prints the answer. Or call the API directly:
-```
-HOST=$(kubectl -n llm get ingress vllm -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
-curl -s http://$HOST/v1/chat/completions -H 'Content-Type: application/json' \
-  -d '{"model":"qwen2.5-0.5b-instruct","messages":[{"role":"user","content":"Your question"}],"max_tokens":100}'
-```
-It works only from inside the VPC (the ALB is internal).
+## Results (Qwen2.5-7B-Instruct, one A10G)
+Load test from a pod in the cluster, through the internal ALB, 128 max output tokens:
 
-## How to run the load test
-On the bastion: `~/k8s/bootstrap.sh loadtest` (200 requests, concurrency 8). Override with `REQUESTS=300 CONCURRENCY=4`. The result is printed and saved to `~/loadtest-result.json`.
+| Requests / concurrency | Throughput | Latency p50 / p95 | Errors |
+|---|---|---|---|
+| 200 / 8 | 4.7 req/s, 228 tokens/s | 1.69 s / 1.86 s | 0 |
 
-## Load test results
-Model: Qwen2.5-0.5B-Instruct on one A10G (`g5.xlarge`). Run from a pod in the cluster through the internal ALB, 128 max output tokens.
+GPU memory in use: 19.8 GiB of 22.5 GiB. Raw output: [docs/evidence/phase5-7b-and-loadtest.txt](docs/evidence/phase5-7b-and-loadtest.txt). Proof the GPU runs: [docs/evidence/phase3-nvidia-smi.txt](docs/evidence/phase3-nvidia-smi.txt).
 
-| Metric | Run 1 (brief's minimum) | Run 2 (dashboard screenshot) |
-|---|---|---|
-| Requests / concurrency | 200 / 8 | 4,000 / 8 |
-| Duration | 6.38 s | 122.28 s |
-| Throughput | 31.4 req/s | 32.7 req/s |
-| Output tokens/s | 1,815 | 1,874 |
-| Latency p50 / p95 | 0.238 s / 0.360 s | 0.236 s / 0.356 s |
-| Errors | 0 | 0 |
-
-Details and raw output: [docs/evidence/phase4-vllm-and-loadtest.txt](docs/evidence/phase4-vllm-and-loadtest.txt). These numbers are for the 0.5B development model and must not be read as 7B results.
-
-## Probes: readiness vs liveness
-- **Readiness** (`/health`): is the pod ready to take traffic? If it fails, Kubernetes removes the pod from the Service and the ALB, but does not restart it. Used while the model is loading or when the server is overloaded.
-- **Liveness** (`/health`): is the process still working? If it keeps failing, Kubernetes restarts the container. Used to recover a hung server.
-- **Startup probe**: gives vLLM up to 15 minutes to load the model before liveness starts, so a slow load is not mistaken for a hang.
-
-## vLLM arguments
-| Argument | Value | Why |
-|---|---|---|
-| `--model` (first argument) | `/models` | Weights synced from S3 at pod start; no internet download |
-| `--served-model-name` | `qwen2.5-0.5b-instruct` | Stable API name, independent of the path |
-| `--max-model-len` | `8192` | Caps context so the KV cache fits beside the weights on 24 GB |
-| `--gpu-memory-utilization` | `0.90` | Headroom for CUDA graphs and overhead |
-| `--tensor-parallel-size` | `1` | One A10G |
-
-Model and revision: Qwen2.5-0.5B-Instruct, Hugging Face commit `7ae557604adf67be50417f59c2c2f167def9a775` (Apache-2.0). Resources: 1 GPU, 2 CPU, 6 GiB memory requested, 12 GiB limit.
-
-## Observability
-- Prometheus scrapes every pod annotated `prometheus.io/scrape` (vLLM `/metrics`, DCGM exporter on 9400). This is the "equivalent scrape config" to a ServiceMonitor (no Prometheus Operator).
-- Grafana dashboard [dashboards/vllm-gpu.json](dashboards/vllm-gpu.json): tokens per second, latency p50 and p95, requests in flight, GPU utilisation, GPU memory, temperature, time to first token, KV cache.
-- View it through the SSM tunnel (see [docs/runbook.md](docs/runbook.md)). Dashboard under load (4,000 requests at concurrency 8):
+Grafana dashboard under load (tokens/s, latency p50 and p95, requests in flight, GPU utilisation, GPU memory). This screenshot was taken during an earlier run with a smaller 0.5B model:
 
 ![Grafana dashboard under load](docs/evidence/grafana-dashboard-under-load.png)
 
-## Cost
-- Plan: about USD 15 for the exercise (budget cap 150). Platform without GPU about $0.24/hr; GPU adds $1.01/hr On-Demand (Spot $0.43 to $0.53 when available). See [ADR-001](docs/adr/ADR-001-instance-type-and-capacity-model.md) and [ADR-003](docs/adr/ADR-003-cost-and-sizing.md).
-- Everything that bills by the hour is a Terraform toggle, off by default.
+## vLLM settings
+| Argument | Value | Why |
+|---|---|---|
+| `--model` | `/models` | weights synced from S3, no internet download |
+| `--served-model-name` | `qwen2.5-7b-instruct` | stable API name |
+| `--max-model-len` | `8192` | KV cache fits beside 15 GB of weights on 24 GB |
+| `--gpu-memory-utilization` | `0.90` | headroom for CUDA graphs |
+| `--tensor-parallel-size` | `1` | one A10G |
 
-## Known limitations and deviations from the brief
-- **GPU capacity:** Spot `g5.xlarge` had no capacity (`UnfulfillableCapacity`, also after widening to g6 and g4dn and a second AZ), so the GPU node ran On-Demand. The Spot group stays in code behind `enable_gpu_nodes`.
-- **EKS control-plane logging off by default** and **no `logs` endpoint** (CloudWatch cost). Supported by `enable_eks_control_plane_logs`. No CloudTrail trail.
-- **Locking:** S3 native locking instead of DynamoDB (Terraform >= 1.11).
-- **Encryption:** node volumes use the existing customer-managed KMS key (shared with Identity Center, rotation off). S3, EKS secrets and the bastion volume use default encryption.
-- **Model:** dev model is Qwen2.5-0.5B. A 7B run is optional (see ADR-006).
-- **Single working AZ** (us-east-1c) and single replica: no high availability.
-- **No `eks` VPC endpoint:** `aws eks update-kubeconfig` does not work on the bastion; `k8s/bootstrap.sh` writes the kubeconfig itself.
-- Plain HTTP inside the VPC, no authentication in front of vLLM (see the law-firm answer for production).
+Pod resources: 1 GPU, 2 CPU and 8 GiB requested, 13 GiB memory limit.
+
+## Probes: readiness vs liveness
+- **Readiness** asks "can it take traffic now?". On failure the pod leaves the Service and the ALB, but is not restarted.
+- **Liveness** asks "is it still alive?". On failure the container is restarted.
+- A **startup probe** gives vLLM up to 15 minutes to load the model before liveness starts.
+
+## Known limitations and deviations
+- **GPU is On-Demand:** Spot `g5.xlarge` had no capacity (`UnfulfillableCapacity`), even with g6 and g4dn and a second AZ. The Spot group is in code behind `enable_gpu_nodes`. [ADR-001](docs/adr/ADR-001-instance-type-and-capacity-model.md)
+- **EKS control-plane logging and the `logs` endpoint are off by default** to avoid CloudWatch cost. `enable_eks_control_plane_logs` turns logging on. No CloudTrail trail. [ADR-004](docs/adr/ADR-004-security.md)
+- **S3 native state locking** instead of DynamoDB (Terraform 1.11 or newer). [ADR-005](docs/adr/ADR-005-delivery-and-terraform.md)
+- **Node disks use an existing customer-managed KMS key** shared with Identity Center (rotation off). Other storage uses default encryption.
+- **Single replica, one working AZ, plain HTTP inside the VPC, no authentication in front of vLLM:** fine for a PoC. See [docs/law-firm-answer.md](docs/law-firm-answer.md) for what production needs.
+- There is no `eks` VPC endpoint, so `aws eks update-kubeconfig` does not work on the bastion. `bootstrap.sh` writes the kubeconfig itself.
+
+## More
+[Decisions (ADRs)](docs/adr/) · [Security controls](docs/security.md) · [Runbook](docs/runbook.md) · [Law-firm answer](docs/law-firm-answer.md) · [Status](deliverable.md)

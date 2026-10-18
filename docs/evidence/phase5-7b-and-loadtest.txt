@@ -1,0 +1,33 @@
+Phase 5 evidence: Qwen2.5-7B-Instruct on one A10G (2026-10-18, from the SSM bastion; account-specific values removed)
+
+Model:  Qwen2.5-7B-Instruct, revision a09a35458c702b33eeacc393d103063234e8bc28 (Apache-2.0), 15.2 GB in 4 files, served as "qwen2.5-7b-instruct"
+Upload: streamed from Hugging Face to S3 from AWS CloudShell, about 2 minutes. Old 0.5B model removed from the bucket.
+Start:  init container sync from S3 (IRSA) plus vLLM load, about 5 minutes
+
+$ kubectl -n llm exec deploy/vllm -c vllm -- nvidia-smi
+NVIDIA-SMI 580.178.04   Driver 580.178.04   CUDA 13.0
+GPU 0: NVIDIA A10G    Memory-Usage 19824MiB / 23028MiB    Temp 36C
+
+$ kubectl -n llm get pods -o wide
+vllm-5d7c46cdb7-jdtfj   1/1   Running   0   NODE ip-10-20-1-167.ec2.internal (the role=gpu node)
+
+First chat check through the internal ALB (after about 1 minute of HTTP 503 while the target registered):
+"model":"qwen2.5-7b-instruct" ... "content":"Hello, nice to meet you."
+
+Load test (job on a system node, through the internal ALB, 128 max output tokens):
+{
+  "model": "qwen2.5-7b-instruct",
+  "requests": 200,
+  "concurrency": 8,
+  "duration_s": 42.88,
+  "throughput_req_per_s": 4.664,
+  "output_tokens_per_s": 227.98,
+  "latency_p50_s": 1.693,
+  "latency_p95_s": 1.856,
+  "latency_mean_s": 1.693,
+  "errors": 0
+}
+
+$ ~/k8s/ask.sh "Explain in two sentences why private networking matters for confidential documents."
+"Private networking ensures that confidential documents are only accessible to authorized individuals within a secure environment, reducing the risk of unauthorized access or data breaches. It provides ..."
+[tokens: 42 prompt, 45 completion]

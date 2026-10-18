@@ -97,7 +97,8 @@ terraform -chdir=terraform/platform destroy      # stops the hourly billing
 scripts/mirror-images.sh --dry-run      # then without --dry-run; ONLY="vllm" for one image
 scripts/stage-tools.sh                   # kubectl and helm for the bastion
 scripts/copy-progress.sh                 # progress of a running crane copy
-scripts/upload-model.sh                  # model weights to S3 at a pinned revision (default Qwen2.5-0.5B-Instruct)
+scripts/upload-model-stream.sh <bucket>      # 7B model, streamed to S3 from CloudShell
+scripts/upload-model.sh                  # model weights to S3 at a pinned revision (default Qwen2.5-0.5B-Instruct; use upload-model-stream.sh for 7B)
 ```
 - Big images: run `crane copy` in AWS CloudShell (about 1 minute for vLLM, 30+ minutes from a laptop). See ADR-005.
 
