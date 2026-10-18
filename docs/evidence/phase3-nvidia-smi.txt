@@ -1,0 +1,25 @@
+Phase 3 evidence (2026-10-18, GPU node g5.xlarge On-Demand, us-east-1c; account-specific values removed)
+
+Node:  ip-10-20-1-12.ec2.internal   role=gpu   taint nvidia.com/gpu=true:NoSchedule   allocatable nvidia.com/gpu: 1
+Pod:   nvidia-smi   STATUS Completed   NODE ip-10-20-1-12.ec2.internal   (image: aws-cli, Amazon Linux; requests nvidia.com/gpu: 1)
+Plugin: nvidia-device-plugin-daemonset   1/1 ready on role=gpu
+
+$ kubectl logs nvidia-smi
+Sun Oct 18 07:05:42 2026
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 580.178.04             Driver Version: 580.178.04     CUDA Version: 13.0     |
++-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA A10G                    On  |   00000000:00:1E.0 Off |                    0 |
+|  0%   19C    P8             10W /  300W |       0MiB /  23028MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+| Processes: No running processes found                                                   |
++-----------------------------------------------------------------------------------------+
+
+Notes:
+- First attempt used a busybox image: nvidia-smi was injected but failed with "libdl.so.2: cannot open shared object file" (busybox has no glibc). Fixed by using the aws-cli (Amazon Linux) image.
+- GPU capacity: Spot launches failed (UnfulfillableCapacity), so the On-Demand node group was used (ADR-001).
