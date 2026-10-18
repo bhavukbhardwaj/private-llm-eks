@@ -6,6 +6,10 @@ Serves **Qwen2.5-7B-Instruct** with vLLM on one NVIDIA A10G, inside a private VP
 - No internet gateway, no NAT gateway, no public ingress. Images come from private ECR and the weights from S3, through VPC endpoints.
 - Pods reach AWS only through IRSA. People use SSO. The EKS API is private, reached through an SSM bastion.
 
+**What is running** (AWS console, EC2): two system nodes (`t4g.small`), the SSM bastion (`t4g.micro`) and the GPU node (`g5.xlarge`), all in us-east-1c, with **no public IP or DNS on any of them**.
+
+![EC2 instances](docs/evidence/ec2-instances.png)
+
 ## Architecture
 ![AWS architecture](docs/architecture/aws-architecture.png)
 
