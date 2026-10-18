@@ -62,7 +62,8 @@ cd ../foundation        && terraform init -backend-config="bucket=<state bucket>
 scripts/mirror-images.sh
 scripts/stage-tools.sh
 
-# 3. Model weights to S3 (pinned revision, see docs/runbook.md)
+# 3. Model weights to S3 (pinned Hugging Face revision)
+scripts/upload-model.sh
 
 # 4. Platform: EKS, nodes, endpoints, bastion (hourly billing starts here)
 cd ../platform && terraform init -backend-config="bucket=<state bucket>" && terraform apply
