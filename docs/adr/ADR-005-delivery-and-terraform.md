@@ -2,7 +2,7 @@
 
 - **Status:** Accepted (2026-10-18)
 - **Related:** [ADR-003](ADR-003-cost-and-sizing.md), [ADR-004](ADR-004-security.md), [task.md](../../task.md) sections 2.1 and 2.2
-- **Index:** D1 stacks and state, D2 locking and versions, D3 readable code, D4 images with `crane copy`
+- **Index:** D1 stacks and state, D2 locking and versions, D3 readable code, D4 images with `crane copy`, D5 monitoring without the Prometheus Operator
 
 ## Context
 - Some things are cheap but slow to recreate (model weights, mirrored images). Others bill hourly (EKS, nodes, endpoints, bastion).
@@ -43,6 +43,11 @@
 - Manifests and Helm values use ECR URLs only.
 - **Big images: run `crane copy` from AWS CloudShell** (free, data-centre bandwidth). vLLM (9.04 GB) took about 1 minute there, against 30+ minutes from the laptop at 10 to 40 Mbit/s.
 
+**D5 Plain Prometheus and Grafana, no Prometheus Operator**
+- Prometheus scrapes every pod annotated `prometheus.io/scrape: "true"` (vLLM `:8000/metrics`, DCGM exporter `:9400/metrics`). The brief allows "a ServiceMonitor (or equivalent scrape config)".
+- The operator stack needs 3 or more extra images not yet mirrored (config-reloader sidecars, webhook certgen) and CRDs. Plain Prometheus, Grafana and the DCGM exporter use only images already in ECR.
+- Grafana loads the data source and the dashboard JSON (`dashboards/vllm-gpu.json`, 9 panels) by provisioning. Admin password is a generated Secret, never in git. Retention is 6 hours in an `emptyDir`.
+
 ## Alternatives considered
 - **D1 One stack with toggles:** teardown needs targeted applies; a destroy could wipe weights and images.
 - **D1 One stack per component:** more wiring, slower in 3 days.
@@ -52,6 +57,7 @@
 - **D4 ECR pull-through cache:** needs upstream credentials for some registries and hides what is pinned.
 - **D4 NAT gateway for the first pull:** about $0.045/hr plus data, against the brief.
 - **D4 `docker pull/push`:** fetches only the laptop architecture (arm64) and breaks the x86 GPU node.
+- **D5 kube-prometheus-stack (operator, ServiceMonitor):** the usual choice, but more images, CRDs and pods on 2 small nodes (about 11 pods each) for no extra evidence.
 
 ## Consequences
 **Positive**
@@ -65,5 +71,6 @@
 - A stuck lock needs `terraform force-unlock` or deleting the `.tflock` object.
 - Bootstrap's local state file must be kept to destroy the bucket (gitignored).
 - More hand-written EKS code to maintain; larger `main.tf` files.
+- D5: no ServiceMonitor objects and no alert rules; scrape targets are chosen by pod annotation. Data is lost when Prometheus restarts (PoC).
 - A manual mirror step on every version bump. Some charts hard-code registries; check values for public references.
 - From a laptop, vLLM (9.04 GB) takes 30+ minutes at 10 to 40 Mbit/s, and a network switch can lose the layer in flight (the largest is 5.15 GB). Use CloudShell for big images.
