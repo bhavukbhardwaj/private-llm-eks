@@ -41,6 +41,7 @@
 - Only our load-test client is built: `docker buildx build --platform linux/arm64 --push`.
 - List and pins: `scripts/images.txt`. Script: `scripts/mirror-images.sh` (`--dry-run`, `ONLY=`, skips existing tags).
 - Manifests and Helm values use ECR URLs only.
+- **Big images: run `crane copy` from AWS CloudShell** (free, data-centre bandwidth). vLLM (9.04 GB) took about 1 minute there, against 30+ minutes from the laptop at 10 to 40 Mbit/s.
 
 ## Alternatives considered
 - **D1 One stack with toggles:** teardown needs targeted applies; a destroy could wipe weights and images.
@@ -65,4 +66,4 @@
 - Bootstrap's local state file must be kept to destroy the bucket (gitignored).
 - More hand-written EKS code to maintain; larger `main.tf` files.
 - A manual mirror step on every version bump. Some charts hard-code registries; check values for public references.
-- vLLM (9.04 GB) takes about 30 min to copy at 40 Mbit/s from a laptop.
+- From a laptop, vLLM (9.04 GB) takes 30+ minutes at 10 to 40 Mbit/s, and a network switch can lose the layer in flight (the largest is 5.15 GB). Use CloudShell for big images.
