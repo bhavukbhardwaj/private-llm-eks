@@ -78,6 +78,15 @@ aws s3 sync s3://<tools bucket>/k8s ~/k8s && chmod +x ~/k8s/bootstrap.sh
 ```
 Turn the GPU node on with `enable_gpu_ondemand_nodes = true` (or the Spot variant `enable_gpu_nodes`) and apply. Destroy with `terraform destroy` in `terraform/platform`.
 
+## Ask the model a question
+On the bastion: `~/k8s/ask.sh "Explain why private networking matters"` prints the answer. Or call the API directly:
+```
+HOST=$(kubectl -n llm get ingress vllm -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+curl -s http://$HOST/v1/chat/completions -H 'Content-Type: application/json' \
+  -d '{"model":"qwen2.5-0.5b-instruct","messages":[{"role":"user","content":"Your question"}],"max_tokens":100}'
+```
+It works only from inside the VPC (the ALB is internal).
+
 ## How to run the load test
 On the bastion: `~/k8s/bootstrap.sh loadtest` (200 requests, concurrency 8). Override with `REQUESTS=300 CONCURRENCY=4`. The result is printed and saved to `~/loadtest-result.json`.
 
@@ -114,7 +123,9 @@ Model and revision: Qwen2.5-0.5B-Instruct, Hugging Face commit `7ae557604adf67be
 ## Observability
 - Prometheus scrapes every pod annotated `prometheus.io/scrape` (vLLM `/metrics`, DCGM exporter on 9400). This is the "equivalent scrape config" to a ServiceMonitor (no Prometheus Operator).
 - Grafana dashboard [dashboards/vllm-gpu.json](dashboards/vllm-gpu.json): tokens per second, latency p50 and p95, requests in flight, GPU utilisation, GPU memory, temperature, time to first token, KV cache.
-- View it through the SSM tunnel (see [docs/runbook.md](docs/runbook.md)). Dashboard screenshot under load: _to add_.
+- View it through the SSM tunnel (see [docs/runbook.md](docs/runbook.md)). Dashboard under load (4,000 requests at concurrency 8):
+
+![Grafana dashboard under load](docs/evidence/grafana-dashboard-under-load.png)
 
 ## Cost
 - Plan: about USD 15 for the exercise (budget cap 150). Platform without GPU about $0.24/hr; GPU adds $1.01/hr On-Demand (Spot $0.43 to $0.53 when available). See [ADR-001](docs/adr/ADR-001-instance-type-and-capacity-model.md) and [ADR-003](docs/adr/ADR-003-cost-and-sizing.md).
