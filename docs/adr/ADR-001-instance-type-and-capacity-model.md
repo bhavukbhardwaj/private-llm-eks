@@ -21,7 +21,8 @@
 
 ## Decision
 - **GPU node:** `g5.xlarge` on **Spot**, one node, AL2023 NVIDIA AMI, taint `nvidia.com/gpu=true:NoSchedule`, gp3 60 GB.
-- **Spot only (operator decision):** it is a PoC, so we do not pay On-Demand.
+- **Spot first (operator decision):** it is a PoC, so On-Demand is not the default.
+- **On-Demand used for the evidence run (operator decision, 2026-10-18 12:30 IST):** Spot launches failed repeatedly with `UnfulfillableCapacity` for g5.xlarge in 1c, and a wider pool (g5, g6, g4dn; 1c and 1d) also failed. A second node group `gpu-ondemand` (`enable_gpu_ondemand_nodes`, `g5.xlarge`, About $1.01/hr) was added. The Spot group stays in code behind `enable_gpu_nodes`; both groups carry the same taint and `role=gpu` label.
 - **Fallback kept in code:** variable `gpu_capacity_type` (default `SPOT`, `ON_DEMAND` possible), commented as unused.
 - **System nodes:** `t4g.small` Spot, **two** nodes (about 11 pods each; add-ons take 4 slots per node).
 - **Bastion:** `t4g.micro` Spot (ADR-004).

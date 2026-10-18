@@ -84,6 +84,18 @@ variable "enable_gpu_nodes" {
   default     = false
 }
 
+variable "enable_gpu_ondemand_nodes" {
+  description = "Create a second GPU node group on On-Demand capacity (about $1.01/hr for g5.xlarge). Use when Spot has no GPU capacity (ADR-001). Needs the On-Demand G/VT quota (4 vCPU)."
+  type        = bool
+  default     = false
+}
+
+variable "gpu_ondemand_instance_type" {
+  description = "Instance type of the On-Demand GPU node group."
+  type        = string
+  default     = "g5.xlarge"
+}
+
 variable "gpu_instance_types" {
   description = "GPU instance types the Spot node group may use, in order of preference (ADR-001). A wider list raises the chance that Spot capacity exists."
   type        = list(string)

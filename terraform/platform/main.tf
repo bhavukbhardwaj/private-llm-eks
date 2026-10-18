@@ -92,6 +92,7 @@ module "eks" {
   gpu_instance_types             = var.gpu_instance_types
   gpu_subnet_ids                 = var.gpu_use_both_azs ? values(local.foundation.private_subnet_ids_by_az) : [local.foundation.primary_subnet_id]
   gpu_capacity_type              = var.gpu_capacity_type
+  enable_gpu_ondemand_nodes      = var.enable_gpu_ondemand_nodes
   kms_key_arn                    = var.kms_key_arn
   gpu_volume_gb                  = var.gpu_volume_gb
 

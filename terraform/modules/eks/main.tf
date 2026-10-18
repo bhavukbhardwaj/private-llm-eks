@@ -222,7 +222,7 @@ resource "aws_eks_addon" "coredns" {
 
 # Launch template for GPU nodes: bigger gp3 encrypted volume for the image and model weights, monitoring off, IMDSv2.
 resource "aws_launch_template" "gpu" {
-  count = var.enable_gpu_nodes ? 1 : 0
+  count = (var.enable_gpu_nodes || var.enable_gpu_ondemand_nodes) ? 1 : 0
 
   name_prefix = "${var.name}-gpu-"
 
@@ -270,6 +270,47 @@ resource "aws_eks_node_group" "gpu" {
   ami_type        = "AL2023_x86_64_NVIDIA"
   capacity_type   = var.gpu_capacity_type # SPOT for the PoC; ON_DEMAND is the unused fallback (ADR-001)
   instance_types  = var.gpu_instance_types
+
+  scaling_config {
+    desired_size = 1
+    min_size     = 0
+    max_size     = 1
+  }
+
+  launch_template {
+    id      = aws_launch_template.gpu[0].id
+    version = aws_launch_template.gpu[0].latest_version
+  }
+
+  labels = { role = "gpu" }
+
+  taint {
+    key    = "nvidia.com/gpu"
+    value  = "true"
+    effect = "NO_SCHEDULE"
+  }
+
+  depends_on = [
+    aws_iam_role_policy_attachment.node,
+    aws_eks_addon.early,
+  ]
+
+  lifecycle {
+    ignore_changes = [scaling_config[0].desired_size]
+  }
+}
+
+# Second GPU node group on On-Demand capacity: same AMI, taint, label and volume, used when Spot has no GPU capacity (ADR-001).
+resource "aws_eks_node_group" "gpu_ondemand" {
+  count = var.enable_gpu_ondemand_nodes ? 1 : 0
+
+  cluster_name    = aws_eks_cluster.this.name
+  node_group_name = "gpu-ondemand"
+  node_role_arn   = aws_iam_role.node.arn
+  subnet_ids      = var.node_subnet_ids
+  ami_type        = "AL2023_x86_64_NVIDIA"
+  capacity_type   = "ON_DEMAND"
+  instance_types  = [var.gpu_ondemand_instance_type]
 
   scaling_config {
     desired_size = 1

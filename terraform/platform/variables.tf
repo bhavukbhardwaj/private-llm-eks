@@ -109,6 +109,12 @@ variable "system_volume_gb" {
   default     = 20
 }
 
+variable "enable_gpu_ondemand_nodes" {
+  description = "Create the On-Demand GPU node group (about $1.01/hr). Fallback for when Spot has no GPU capacity. Needs the owner's approval to turn on (ADR-001)."
+  type        = bool
+  default     = false
+}
+
 variable "gpu_instance_types" {
   description = "GPU instance types for the Spot node group, in order of preference. g5.xlarge (A10G 24 GB) is the target; g6.xlarge (L4 24 GB) and g4dn.xlarge (T4 16 GB) widen the Spot pool when g5 has no capacity (ADR-001)."
   type        = list(string)

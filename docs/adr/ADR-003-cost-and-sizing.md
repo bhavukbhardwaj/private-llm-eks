@@ -35,7 +35,8 @@
 | `enable_interface_endpoints` | false | ecr.api, ecr.dkr, sts, kms, ec2, elasticloadbalancing (6) | about $0.06/hr |
 | `enable_ssm_endpoints` | false | ssm, ssmmessages, ec2messages (3) | about $0.03/hr |
 | `enable_bastion` | false | Spot `t4g.micro` | about $0.004/hr |
-| `enable_gpu_nodes` | false | GPU node group | $0.43 to $0.53/hr |
+| `enable_gpu_nodes` | false | Spot GPU node group | $0.43 to $0.53/hr |
+| `enable_gpu_ondemand_nodes` | false | On-Demand GPU node group (Spot fallback, owner approval) | about $1.01/hr |
 | `kms_key_arn` | null | Node EBS on the existing key (ADR-004) | $0 extra |
 | `enable_eks_control_plane_logs` | false | EKS logs to CloudWatch (ADR-004) | about $0.50/GB |
 | `multi_az` | false | Nodes and endpoints in both AZs | doubles endpoint cost |
