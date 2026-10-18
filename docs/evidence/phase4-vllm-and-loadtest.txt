@@ -1,0 +1,34 @@
+Phase 4 evidence (2026-10-18, from the SSM bastion; account-specific values removed)
+
+Model:  Qwen2.5-0.5B-Instruct, revision 7ae557604adf67be50417f59c2c2f167def9a775, served as "qwen2.5-0.5b-instruct"
+Server: vLLM v0.31.0 on g5.xlarge (NVIDIA A10G 24 GB), init container synced the weights from S3 through IRSA
+Engine: model loaded in 5 s (0.93 GiB), KV cache 18.29 GiB, CUDA graphs captured
+
+$ kubectl -n llm get pods -o wide
+vllm-66798d68b7-fmwvz   1/1   Running   0   NODE ip-10-20-1-167.ec2.internal (the role=gpu node)
+
+ALB (scheme internal, target-type ip): internal-k8s-llm-vllm-<hash>.us-east-1.elb.amazonaws.com
+$ curl http://<internal ALB>/v1/chat/completions -d '{"model":"qwen2.5-0.5b-instruct","messages":[{"role":"user","content":"Say hello in five words."}],"max_tokens":32}'
+first attempts: HTTP 503 while the ALB registered the target (about 1 minute), then:
+{"id":"chatcmpl-...","object":"chat.completion","model":"qwen2.5-0.5b-instruct","choices":[{"index":0,"message":{"role":"assistant","content":"Hello! How can I assist you today?", ...
+
+Load test (pod loadtest-z2kwh on a system node, through the internal ALB):
+{
+  "model": "qwen2.5-0.5b-instruct",
+  "requests": 200,
+  "concurrency": 8,
+  "duration_s": 6.38,
+  "throughput_req_per_s": 31.372,
+  "output_tokens_per_s": 1814.84,
+  "latency_p50_s": 0.238,
+  "latency_p95_s": 0.36,
+  "latency_mean_s": 0.249,
+  "errors": 0
+}
+
+Prometheus targets up: vllm, dcgm-exporter (and the Load Balancer Controller). All 12 dashboard metrics present
+(vllm:generation_tokens_total, prompt_tokens_total, e2e_request_latency_seconds_bucket, time_to_first_token_seconds_bucket,
+num_requests_running, num_requests_waiting, request_success_total, kv_cache_usage_perc; DCGM_FI_DEV_GPU_UTIL, FB_USED, FB_FREE, GPU_TEMP).
+
+Issue found and fixed: first deploy crash-looped with "VLLM_PORT 'tcp://...:80' appears to be a URI". A Service named vllm makes
+Kubernetes inject VLLM_PORT; fixed with enableServiceLinks: false (commit c6e570a).

@@ -82,7 +82,17 @@ Turn the GPU node on with `enable_gpu_ondemand_nodes = true` (or the Spot varian
 On the bastion: `~/k8s/bootstrap.sh loadtest` (200 requests, concurrency 8). Override with `REQUESTS=300 CONCURRENCY=4`. The result is printed and saved to `~/loadtest-result.json`.
 
 ## Load test results
-_To be filled after the run (model, requests, concurrency, throughput, p50, p95, errors)._
+Model: Qwen2.5-0.5B-Instruct on one A10G (`g5.xlarge`). Run from a pod in the cluster through the internal ALB, 128 max output tokens.
+
+| Metric | Result |
+|---|---|
+| Requests / concurrency | 200 / 8 |
+| Duration | 6.38 s |
+| Throughput | 31.4 requests/s, 1,815 output tokens/s |
+| Latency p50 / p95 | 0.238 s / 0.360 s |
+| Errors | 0 |
+
+Details and raw output: [docs/evidence/phase4-vllm-and-loadtest.txt](docs/evidence/phase4-vllm-and-loadtest.txt). These numbers are for the 0.5B development model and must not be read as 7B results.
 
 ## Probes: readiness vs liveness
 - **Readiness** (`/health`): is the pod ready to take traffic? If it fails, Kubernetes removes the pod from the Service and the ALB, but does not restart it. Used while the model is loading or when the server is overloaded.
