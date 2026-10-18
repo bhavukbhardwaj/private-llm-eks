@@ -25,6 +25,7 @@
 - **D5 Two subnets, one working AZ.**
   - Subnets in `us-east-1c` and `us-east-1d` (the two cheapest g5 Spot AZs). VPC `10.20.0.0/16`, subnets `10.20.1.0/24` and `10.20.2.0/24`.
   - Working AZ is **1c** (`primary_az`): all nodes, bastion, endpoints and pods. 1d is the spare and the fallback.
+  - Exception: the GPU node group may use both subnets (1c and 1d) to widen the Spot pool. Endpoints stay in 1c, so a node in 1d adds a little cross-AZ traffic.
   - `describe-instance-type-offerings`: t4g.small, t4g.micro, g5.xlarge, g4dn.xlarge and g5g.xlarge exist in both.
   - "1d is less crowded" cannot be verified; the choice rests on price.
 - **D6 Cost toggles**: variables, implemented in code, off by default, never turned on without asking.

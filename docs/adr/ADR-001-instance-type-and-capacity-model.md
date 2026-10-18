@@ -25,6 +25,7 @@
 - **Fallback kept in code:** variable `gpu_capacity_type` (default `SPOT`, `ON_DEMAND` possible), commented as unused.
 - **System nodes:** `t4g.small` Spot, **two** nodes (about 11 pods each; add-ons take 4 slots per node).
 - **Bastion:** `t4g.micro` Spot (ADR-004).
+- **Wider Spot pool (added 2026-10-18 after `UnfulfillableCapacity` for g5.xlarge in 1c):** the GPU group may use `g5.xlarge`, `g6.xlarge` and `g4dn.xlarge`, in both 1c and 1d (`gpu_instance_types`, `gpu_use_both_azs`). Still Spot. Spot placement scores were 1 (lowest) for all three types in every AZ.
 - **Develop on the cheapest GPU or CPU**, switch to `g5.xlarge` for the final evidence run. One variable changes it.
 - **GPU runs only while testing** (toggle `enable_gpu_nodes`, ADR-003).
 

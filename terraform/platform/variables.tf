@@ -109,10 +109,16 @@ variable "system_volume_gb" {
   default     = 20
 }
 
-variable "gpu_instance_type" {
-  description = "GPU instance type."
-  type        = string
-  default     = "g5.xlarge"
+variable "gpu_instance_types" {
+  description = "GPU instance types for the Spot node group, in order of preference. g5.xlarge (A10G 24 GB) is the target; g6.xlarge (L4 24 GB) and g4dn.xlarge (T4 16 GB) widen the Spot pool when g5 has no capacity (ADR-001)."
+  type        = list(string)
+  default     = ["g5.xlarge", "g6.xlarge", "g4dn.xlarge"]
+}
+
+variable "gpu_use_both_azs" {
+  description = "Let the GPU node group use both subnets (1c and 1d) to widen the Spot pool. false keeps it in the working AZ only (ADR-003)."
+  type        = bool
+  default     = true
 }
 
 variable "gpu_capacity_type" {

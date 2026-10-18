@@ -89,7 +89,8 @@ module "eks" {
   system_desired_size            = var.system_desired_size
   system_volume_gb               = var.system_volume_gb
   enable_gpu_nodes               = var.enable_gpu_nodes
-  gpu_instance_type              = var.gpu_instance_type
+  gpu_instance_types             = var.gpu_instance_types
+  gpu_subnet_ids                 = var.gpu_use_both_azs ? values(local.foundation.private_subnet_ids_by_az) : [local.foundation.primary_subnet_id]
   gpu_capacity_type              = var.gpu_capacity_type
   kms_key_arn                    = var.kms_key_arn
   gpu_volume_gb                  = var.gpu_volume_gb

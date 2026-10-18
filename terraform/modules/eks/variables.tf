@@ -84,10 +84,15 @@ variable "enable_gpu_nodes" {
   default     = false
 }
 
-variable "gpu_instance_type" {
-  description = "GPU instance type (ADR-001)."
-  type        = string
-  default     = "g5.xlarge"
+variable "gpu_instance_types" {
+  description = "GPU instance types the Spot node group may use, in order of preference (ADR-001). A wider list raises the chance that Spot capacity exists."
+  type        = list(string)
+  default     = ["g5.xlarge"]
+}
+
+variable "gpu_subnet_ids" {
+  description = "Subnets for the GPU node group. Both AZs widen the Spot capacity pool; the working AZ alone is cheaper in cross-AZ traffic (ADR-003)."
+  type        = list(string)
 }
 
 variable "kms_key_arn" {
