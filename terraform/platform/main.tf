@@ -4,7 +4,7 @@ data "terraform_remote_state" "foundation" {
 
   config = {
     bucket = var.state_bucket
-    key    = "private-llm/assessment/foundation/terraform.tfstate"
+    key    = "${var.project}/${var.environment}/foundation/terraform.tfstate"
     region = var.region
   }
 }
