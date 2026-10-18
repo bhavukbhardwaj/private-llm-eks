@@ -1,0 +1,15 @@
+# AWS Load Balancer Controller chart values (static part). Cluster name, region, VPC, role ARN and the ECR image
+# are passed by k8s/bootstrap.sh from config.env, so no account ID is stored in git.
+replicaCount: 1 # one replica is enough for the PoC and saves a pod slot on the t4g.small nodes
+
+# No WAF or Shield: nothing in the PoC uses them, and it avoids calls to endpoints we do not create.
+enableShield: false
+enableWaf: false
+enableWafv2: false
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 100Mi
+  limits:
+    memory: 256Mi
