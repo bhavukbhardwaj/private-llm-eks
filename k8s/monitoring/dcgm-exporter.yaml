@@ -1,0 +1,66 @@
+# NVIDIA DCGM exporter: GPU utilisation, memory and temperature as Prometheus metrics (port 9400), on the GPU node only.
+# It does not request nvidia.com/gpu (so it does not use up the GPU); NVIDIA_VISIBLE_DEVICES=all gives it read access to the device.
+# ${ECR} is filled in by k8s/bootstrap.sh.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: dcgm-exporter
+  namespace: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: dcgm-exporter
+  template:
+    metadata:
+      labels:
+        app: dcgm-exporter
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9400"
+        prometheus.io/path: /metrics
+    spec:
+      nodeSelector:
+        role: gpu
+      tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+      containers:
+        - name: dcgm-exporter
+          image: ${ECR}/dcgm-exporter:4.5.2-4.8.1-ubuntu22.04
+          env:
+            - name: DCGM_EXPORTER_KUBERNETES
+              value: "true"
+            - name: DCGM_EXPORTER_LISTEN
+              value: ":9400"
+            - name: NVIDIA_VISIBLE_DEVICES
+              value: all
+            - name: NVIDIA_DRIVER_CAPABILITIES
+              value: utility,compute
+          ports:
+            - name: metrics
+              containerPort: 9400
+          securityContext:
+            runAsNonRoot: false
+            runAsUser: 0
+            capabilities:
+              add: ["SYS_ADMIN"]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+          volumeMounts:
+            - name: pod-gpu-resources
+              mountPath: /var/lib/kubelet/pod-resources
+              readOnly: true
+      volumes:
+        - name: pod-gpu-resources
+          hostPath:
+            path: /var/lib/kubelet/pod-resources

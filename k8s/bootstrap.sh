@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Runs ON THE BASTION. Installs the AWS Load Balancer Controller and the placeholder app, then curls the internal ALB.
-# Usage: ./bootstrap.sh [kubeconfig|lb|placeholder|gpu|all]   (default: all; `gpu` is not part of `all`)
+# Usage: ./bootstrap.sh [kubeconfig|lb|placeholder|gpu|monitoring|llm|all]   (default: all = kubeconfig, lb, placeholder)
 # Needs config.env (written by scripts/stage-k8s.sh) in the same folder.
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -9,7 +9,11 @@ source ./config.env
 export AWS_REGION AWS_DEFAULT_REGION="$AWS_REGION"
 STEP="${1:-all}"
 
-render() { sed "s|\${ECR}|${ECR}|g" "$1"; }
+# Fills the ${PLACEHOLDERS} in a manifest from config.env (no account IDs or ARNs are stored in git).
+render() {
+  sed -e "s|\${ECR}|${ECR}|g" -e "s|\${AWS_REGION}|${AWS_REGION}|g" -e "s|\${MODELS_BUCKET}|${MODELS_BUCKET:-}|g" \
+      -e "s|\${MODEL_PREFIX}|${MODEL_PREFIX:-}|g" -e "s|\${MODEL_NAME}|${MODEL_NAME:-}|g" -e "s|\${VLLM_ROLE_ARN}|${VLLM_ROLE_ARN:-}|g" "$1"
+}
 
 # Writes ~/.kube/config WITHOUT calling the EKS API (there is no eks VPC endpoint, so `aws eks update-kubeconfig` would hang).
 # Token generation (`aws eks get-token`) only signs an STS request, which works through the sts endpoint.
@@ -81,11 +85,46 @@ gpu() {
   kubectl get pod nvidia-smi -o wide
 }
 
+# Monitoring: DCGM exporter, Prometheus, Grafana (dashboard from dashboards/vllm-gpu.json, admin password generated here and kept in a Secret).
+monitoring() {
+  kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
+  if ! kubectl -n monitoring get secret grafana-admin >/dev/null 2>&1; then
+    kubectl -n monitoring create secret generic grafana-admin --from-literal=password="$(head -c 18 /dev/urandom | base64 | tr -d '/+=' | cut -c1-20)"
+  fi
+  kubectl -n monitoring create configmap grafana-dashboards --from-file=dashboards/vllm-gpu.json --dry-run=client -o yaml | kubectl apply -f -
+  for f in monitoring/dcgm-exporter.yaml monitoring/prometheus.yaml monitoring/grafana.yaml; do render "$f" | kubectl apply -f -; done
+  kubectl -n monitoring rollout status deploy/prometheus --timeout=3m
+  kubectl -n monitoring rollout status deploy/grafana --timeout=3m
+  kubectl -n monitoring get pods -o wide
+  echo "Grafana admin password:  kubectl -n monitoring get secret grafana-admin -o jsonpath='{.data.password}' | base64 -d"
+}
+
+# LLM: vLLM (S3 init container, GPU) behind an internal ALB, then a chat-completion curl from inside the VPC.
+llm() {
+  render llm/vllm.yaml | kubectl apply -f -
+  echo "waiting for the model to sync and vLLM to start (several minutes on first run)..."
+  kubectl -n llm rollout status deploy/vllm --timeout=20m
+  for _ in $(seq 1 40); do
+    HOST="$(kubectl -n llm get ingress vllm -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || true)"
+    [ -n "$HOST" ] && break
+    sleep 10
+  done
+  echo "ALB: ${HOST:-not ready}"
+  for _ in $(seq 1 48); do
+    if curl -fsS -m 20 "http://${HOST}/v1/chat/completions" -H 'Content-Type: application/json' \
+      -d "{\"model\":\"${MODEL_NAME}\",\"messages\":[{\"role\":\"user\",\"content\":\"Say hello in five words.\"}],\"max_tokens\":32}"; then echo; break; fi
+    sleep 10
+  done
+  kubectl -n llm get pods -o wide
+}
+
 case "$STEP" in
   kubeconfig) kubeconfig ;;
   lb) lb ;;
   placeholder) placeholder ;;
   gpu) gpu ;;
+  monitoring) monitoring ;;
+  llm) llm ;;
   all) kubeconfig; lb; placeholder ;;
-  *) echo "usage: $0 [kubeconfig|lb|placeholder|gpu|all]"; exit 1 ;;
+  *) echo "usage: $0 [kubeconfig|lb|placeholder|gpu|monitoring|llm|all]"; exit 1 ;;
 esac

@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # Runs on the laptop. Stages everything the bastion needs to S3: the k8s/ folder, the pinned Load Balancer Controller chart,
 # and config.env (cluster name, VPC, ECR host, role ARNs) built from Terraform outputs. config.env lives only in S3, never in git.
-# Usage: scripts/stage-k8s.sh      env: AWS_REGION (default us-east-1), LBC_CHART_VERSION (default 3.6.0)
+# Usage: scripts/stage-k8s.sh      env: AWS_REGION (default us-east-1), LBC_CHART_VERSION (default 3.6.0), MODEL_NAME, MODEL_PREFIX (S3 prefix of the model revision)
 set -euo pipefail
 
 REGION="${AWS_REGION:-us-east-1}"
 LBC_CHART_VERSION="${LBC_CHART_VERSION:-3.6.0}"
+MODEL_NAME="${MODEL_NAME:-qwen2.5-0.5b-instruct}"
+MODEL_PREFIX="${MODEL_PREFIX:-qwen2.5-0.5b-instruct/7ae557604adf67be50417f59c2c2f167def9a775}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TOOLS_BUCKET="$(terraform -chdir="$ROOT/terraform/foundation" output -raw tools_bucket)"
 MODELS_BUCKET="$(terraform -chdir="$ROOT/terraform/foundation" output -raw models_bucket)"
@@ -15,6 +17,7 @@ WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
 cp -R "$ROOT/k8s/." "$WORK/"
+mkdir -p "$WORK/dashboards" && cp "$ROOT"/dashboards/*.json "$WORK/dashboards/"
 mkdir -p "$WORK/charts"
 helm repo add eks https://aws.github.io/eks-charts >/dev/null 2>&1 || true
 helm repo update eks >/dev/null
@@ -30,6 +33,8 @@ VLLM_ROLE_ARN=$(tf vllm_role_arn)
 EKS_ENDPOINT=$(aws eks describe-cluster --name "$(tf cluster_name)" --region "$REGION" --query cluster.endpoint --output text)
 EKS_CA=$(aws eks describe-cluster --name "$(tf cluster_name)" --region "$REGION" --query cluster.certificateAuthority.data --output text)
 MODELS_BUCKET=${MODELS_BUCKET}
+MODEL_NAME=${MODEL_NAME}
+MODEL_PREFIX=${MODEL_PREFIX}
 CFG
 chmod +x "$WORK/bootstrap.sh"
 

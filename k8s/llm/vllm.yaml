@@ -1,0 +1,161 @@
+# vLLM serving the model from S3 on the GPU node, behind an internal ALB (ADR-002, ADR-006).
+# Placeholders filled in by k8s/bootstrap.sh from config.env: ${ECR} ${AWS_REGION} ${MODELS_BUCKET} ${MODEL_PREFIX} ${MODEL_NAME} ${VLLM_ROLE_ARN}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: llm
+---
+# Service account with IRSA: the pod can read the models bucket and nothing else (no long-lived credentials).
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vllm
+  namespace: llm
+  annotations:
+    eks.amazonaws.com/role-arn: ${VLLM_ROLE_ARN}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm
+  namespace: llm
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate # one GPU: the old pod must release it before the new one starts
+  selector:
+    matchLabels:
+      app: vllm
+  template:
+    metadata:
+      labels:
+        app: vllm
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: /metrics
+    spec:
+      serviceAccountName: vllm
+      nodeSelector:
+        role: gpu
+      tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+      initContainers:
+        # Copies the pinned model revision from S3 into the shared emptyDir before vLLM starts (no internet download).
+        - name: sync-model
+          image: ${ECR}/aws-cli:2.38.1
+          command: ["sh", "-c", "aws s3 sync s3://${MODELS_BUCKET}/${MODEL_PREFIX} /models --region ${AWS_REGION} --no-progress && test -f /models/config.json"]
+          volumeMounts:
+            - name: models
+              mountPath: /models
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+      containers:
+        - name: vllm
+          image: ${ECR}/vllm:v0.31.0
+          # Entrypoint is `vllm serve`; the first argument is the model path.
+          args:
+            - /models                                  # --model: local weights synced from S3
+            - --served-model-name=${MODEL_NAME}        # stable API name, independent of the path
+            - --max-model-len=8192                     # caps context so the KV cache fits next to the weights on 24 GB
+            - --gpu-memory-utilization=0.90            # leaves headroom for CUDA graphs and overhead
+            - --tensor-parallel-size=1                 # one A10G
+            - --host=0.0.0.0
+            - --port=8000
+          env:
+            - name: HF_HUB_OFFLINE
+              value: "1"
+            - name: VLLM_NO_USAGE_STATS
+              value: "1"
+            - name: DO_NOT_TRACK
+              value: "1"
+          ports:
+            - name: http
+              containerPort: 8000
+          resources:
+            requests:
+              cpu: "2"
+              memory: 6Gi
+              nvidia.com/gpu: 1
+            limits:
+              memory: 12Gi
+              nvidia.com/gpu: 1
+          # Startup probe: allows up to 15 minutes for model load and CUDA graph capture before liveness starts.
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            failureThreshold: 90
+          # Readiness: the pod receives traffic only while /health answers; a failure removes it from the ALB without a restart.
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            failureThreshold: 3
+          # Liveness: if /health keeps failing the container is restarted (a hung server cannot recover by itself).
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 20
+            failureThreshold: 5
+          volumeMounts:
+            - name: models
+              mountPath: /models
+              readOnly: true
+            - name: shm
+              mountPath: /dev/shm
+      volumes:
+        - name: models
+          emptyDir:
+            sizeLimit: 25Gi
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm
+  namespace: llm
+spec:
+  selector:
+    app: vllm
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+# Internal ALB (scheme internal, target-type ip): the OpenAI-compatible API is reachable only from inside the VPC.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: vllm
+  namespace: llm
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internal
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/inbound-cidrs: 10.20.0.0/16
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+    alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds=300
+spec:
+  ingressClassName: alb
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: vllm
+                port:
+                  number: 80
