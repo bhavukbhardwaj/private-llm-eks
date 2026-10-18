@@ -42,10 +42,11 @@ Needs an AWS account with SSO, GPU quota (4 vCPU) in us-east-1, Terraform 1.11 o
 ## Try it
 On the bastion (the endpoint is internal, so it works only from inside the VPC):
 ```
-~/k8s/ask.sh "Explain why private networking matters"      # prints the answer
-~/k8s/bootstrap.sh loadtest                                  # 200 requests, concurrency 8, from a pod
-REQUESTS=600 CONCURRENCY=4 ~/k8s/bootstrap.sh loadtest
+~/k8s/ask.sh "Explain why private networking matters"        # prints the answer
+~/k8s/bootstrap.sh loadtest                                    # default: 200 requests, concurrency 8
+REQUESTS=600 CONCURRENCY=8 ~/k8s/bootstrap.sh loadtest         # change the two numbers as you like
 ```
+Load test time on the 7B model (about 4.7 requests per second): 200 requests = 43 s, 600 = about 2 min, 1,000 = about 3.5 min. Concurrency 4 to 8 is what the brief asks for. The result prints as JSON and is saved to `~/loadtest-result.json`.
 
 ## Results (Qwen2.5-7B-Instruct, one A10G)
 Load test from a pod in the cluster, through the internal ALB, 128 max output tokens:
