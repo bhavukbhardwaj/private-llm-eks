@@ -1,4 +1,4 @@
-# In-cluster load test (brief 2.5): a pod sends REQUESTS chat completions at CONCURRENCY through the internal ALB and prints
+# In-cluster load test (assignment requirement): a pod sends REQUESTS chat completions at CONCURRENCY through the internal ALB and prints
 # throughput, p50/p95 latency and errors as JSON. Runs on a system (arm64) node. Placeholders are filled in by k8s/bootstrap.sh.
 apiVersion: batch/v1
 kind: Job

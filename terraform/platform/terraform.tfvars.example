@@ -8,7 +8,7 @@ enable_bastion             = false
 enable_gpu_nodes           = false # needs AWS GPU quota approval (ADR-001)
 enable_ebs_csi             = false
 
-# Existing customer-managed KMS key for node EBS volumes (brief 2.2). Contains the account ID: keep this line in your untracked tfvars only.
+# Existing customer-managed KMS key for node EBS volumes (required by the assignment). Contains the account ID: keep this line in your untracked tfvars only.
 # kms_key_arn = "arn:aws:kms:us-east-1:<account-id>:key/<key-id>"
 
 # Production would set: eks_control_plane_log_types = ["api", "audit", "authenticator"]

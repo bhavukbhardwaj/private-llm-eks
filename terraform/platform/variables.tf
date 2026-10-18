@@ -28,7 +28,7 @@ variable "state_bucket" {
 }
 
 variable "kms_key_arn" {
-  description = "ARN of an existing customer-managed KMS key used to encrypt node EBS volumes (brief 2.2). Pass it from an untracked tfvars file; it contains the account ID. Null keeps the AWS-managed aws/ebs key (ADR-003)."
+  description = "ARN of an existing customer-managed KMS key used to encrypt node EBS volumes (required by the assignment). Pass it from an untracked tfvars file; it contains the account ID. Null keeps the AWS-managed aws/ebs key (ADR-003)."
   type        = string
   default     = null
 }
@@ -110,7 +110,7 @@ variable "system_volume_gb" {
 }
 
 variable "enable_gpu_ondemand_nodes" {
-  description = "Create the On-Demand GPU node group (about $1.01/hr). Fallback for when Spot has no GPU capacity. Needs the owner's approval to turn on (ADR-001)."
+  description = "Create the On-Demand GPU node group (about $1.01/hr). Fallback when Spot has no GPU capacity (ADR-001)."
   type        = bool
   default     = false
 }

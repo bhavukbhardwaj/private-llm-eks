@@ -45,3 +45,9 @@ secrets/
 
 # Personal notes, never pushed
 private/
+
+# Local working files, not part of the submission
+task.md
+memory.md
+CLAUDE.md
+deliverable.md

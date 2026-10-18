@@ -139,18 +139,13 @@ resource "aws_instance" "this" {
     encrypted   = true
   }
 
-  # First boot: copy kubectl/helm from the tools bucket and add a helper that writes the kubeconfig.
+  # First boot: copy kubectl, helm and other tools from the tools bucket.
   user_data = <<-EOT
     #!/bin/bash
     set -eu
     mkdir -p /usr/local/bin
     aws s3 sync "s3://${var.tools_bucket}/bin/" /usr/local/bin/ --region ${var.region} || true
     chmod +x /usr/local/bin/* || true
-    cat > /usr/local/bin/kube-setup <<'SCRIPT'
-    #!/bin/bash
-    aws eks update-kubeconfig --name ${var.cluster_name} --region ${var.region}
-    SCRIPT
-    chmod +x /usr/local/bin/kube-setup
     echo 'export AWS_REGION=${var.region} AWS_DEFAULT_REGION=${var.region}' > /etc/profile.d/aws-region.sh
   EOT
 

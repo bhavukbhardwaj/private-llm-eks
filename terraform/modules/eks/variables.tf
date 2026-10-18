@@ -108,7 +108,7 @@ variable "gpu_subnet_ids" {
 }
 
 variable "kms_key_arn" {
-  description = "Customer-managed KMS key for the node EBS volumes (brief 2.2). Null keeps the AWS-managed aws/ebs key. The key is referenced, never created here (ADR-003)."
+  description = "Customer-managed KMS key for the node EBS volumes (required by the assignment). Null keeps the AWS-managed aws/ebs key. The key is referenced, never created here (ADR-003)."
   type        = string
   default     = null
 }
