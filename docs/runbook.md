@@ -42,6 +42,7 @@ aws s3 sync s3://private-llm-tools-ded4d08d/k8s ~/k8s
 ```
 - Installs the NVIDIA device plugin, waits for `nvidia.com/gpu: 1` on the GPU node, runs a pod that prints `nvidia-smi`, then shows the pod on the GPU node.
 - Save the output in `docs/evidence/`.
+- The test pod uses the `aws-cli` image (glibc). A busybox image fails with `libdl.so.2: cannot open shared object file`.
 
 ## 3. Day-to-day on the bastion
 ```

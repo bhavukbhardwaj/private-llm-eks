@@ -1,5 +1,6 @@
 # One-off pod that requests 1 GPU and runs nvidia-smi: the top-graded evidence that a GPU workload schedules and runs.
 # It tolerates the GPU taint, requests nvidia.com/gpu, and lands only on the GPU node. ${ECR} is filled in by k8s/bootstrap.sh.
+# Image: the mirrored aws-cli image (Amazon Linux, has glibc). busybox does not work: nvidia-smi is injected but fails with a missing libdl.so.2.
 apiVersion: v1
 kind: Pod
 metadata:
@@ -15,7 +16,7 @@ spec:
       effect: NoSchedule
   containers:
     - name: nvidia-smi
-      image: ${ECR}/busybox:1.38.0
+      image: ${ECR}/aws-cli:2.38.1
       command: ["sh", "-c", "nvidia-smi && sleep 5"]
       env:
         - name: NVIDIA_VISIBLE_DEVICES
