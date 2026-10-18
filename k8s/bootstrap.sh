@@ -61,8 +61,8 @@ placeholder() {
     sleep 10
   done
   echo "ALB: ${HOST:-not ready}"
-  echo "curl from inside the VPC (targets can take 1 to 2 minutes to become healthy):"
-  for _ in $(seq 1 20); do
+  echo "curl from inside the VPC (the ALB needs 2 to 5 minutes to become active and its targets healthy):"
+  for _ in $(seq 1 48); do
     if curl -fsS -m 5 "http://${HOST}/"; then echo; break; fi
     sleep 10
   done
