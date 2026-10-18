@@ -44,6 +44,17 @@ aws s3 sync s3://private-llm-tools-ded4d08d/k8s ~/k8s
 - Save the output in `docs/evidence/`.
 - The test pod uses the `aws-cli` image (glibc). A busybox image fails with `libdl.so.2: cannot open shared object file`.
 
+## 2d. Serve the model and load test (GPU node on)
+On the **bastion**, after the GPU node is up and `bootstrap.sh monitoring` has run once:
+```
+aws s3 sync s3://private-llm-tools-ded4d08d/k8s ~/k8s && chmod +x ~/k8s/bootstrap.sh
+~/k8s/bootstrap.sh llm            # vLLM (S3 sync, GPU), internal ALB, chat-completion curl
+~/k8s/bootstrap.sh loadtest       # 200 requests at concurrency 8 from a pod; JSON result
+~/k8s/bootstrap.sh session        # both of the above in one go
+REQUESTS=300 CONCURRENCY=4 ~/k8s/bootstrap.sh loadtest
+```
+- The load-test result is printed and saved to `~/loadtest-result.json`. Copy it into the README with the model name.
+
 ## 3. Day-to-day on the bastion
 ```
 kubectl get nodes -o wide

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Runs ON THE BASTION. Installs the AWS Load Balancer Controller and the placeholder app, then curls the internal ALB.
-# Usage: ./bootstrap.sh [kubeconfig|lb|placeholder|gpu|monitoring|llm|all]   (default: all = kubeconfig, lb, placeholder)
+# Usage: ./bootstrap.sh [kubeconfig|lb|placeholder|gpu|monitoring|llm|loadtest|session|all]   (default: all = kubeconfig, lb, placeholder)
+#   session = llm + loadtest (run once the GPU node is up). env: REQUESTS (default 200), CONCURRENCY (default 8)
 # Needs config.env (written by scripts/stage-k8s.sh) in the same folder.
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -12,7 +13,8 @@ STEP="${1:-all}"
 # Fills the ${PLACEHOLDERS} in a manifest from config.env (no account IDs or ARNs are stored in git).
 render() {
   sed -e "s|\${ECR}|${ECR}|g" -e "s|\${AWS_REGION}|${AWS_REGION}|g" -e "s|\${MODELS_BUCKET}|${MODELS_BUCKET:-}|g" \
-      -e "s|\${MODEL_PREFIX}|${MODEL_PREFIX:-}|g" -e "s|\${MODEL_NAME}|${MODEL_NAME:-}|g" -e "s|\${VLLM_ROLE_ARN}|${VLLM_ROLE_ARN:-}|g" "$1"
+      -e "s|\${MODEL_PREFIX}|${MODEL_PREFIX:-}|g" -e "s|\${MODEL_NAME}|${MODEL_NAME:-}|g" -e "s|\${VLLM_ROLE_ARN}|${VLLM_ROLE_ARN:-}|g" \
+      -e "s|\${TARGET_URL}|${TARGET_URL:-}|g" -e "s|\${REQUESTS}|${REQUESTS:-200}|g" -e "s|\${CONCURRENCY}|${CONCURRENCY:-8}|g" "$1"
 }
 
 # Writes ~/.kube/config WITHOUT calling the EKS API (there is no eks VPC endpoint, so `aws eks update-kubeconfig` would hang).
@@ -118,6 +120,17 @@ llm() {
   kubectl -n llm get pods -o wide
 }
 
+# Load test from a pod through the internal ALB; prints the JSON result and saves it to ~/loadtest-result.json.
+loadtest() {
+  HOST="$(kubectl -n llm get ingress vllm -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')"
+  export TARGET_URL="http://${HOST}/v1/chat/completions"
+  kubectl -n llm delete job loadtest --ignore-not-found
+  render loadtest/job.yaml | kubectl apply -f -
+  kubectl -n llm wait --for=condition=complete job/loadtest --timeout=30m
+  kubectl -n llm logs job/loadtest | tee "$HOME/loadtest-result.json"
+  kubectl -n llm get pods -o wide
+}
+
 case "$STEP" in
   kubeconfig) kubeconfig ;;
   lb) lb ;;
@@ -125,6 +138,8 @@ case "$STEP" in
   gpu) gpu ;;
   monitoring) monitoring ;;
   llm) llm ;;
+  loadtest) loadtest ;;
+  session) llm; loadtest ;;
   all) kubeconfig; lb; placeholder ;;
-  *) echo "usage: $0 [kubeconfig|lb|placeholder|gpu|monitoring|llm|all]"; exit 1 ;;
+  *) echo "usage: $0 [kubeconfig|lb|placeholder|gpu|monitoring|llm|loadtest|session|all]"; exit 1 ;;
 esac
